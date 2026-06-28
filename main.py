@@ -47,6 +47,7 @@ class SoftReliefApp(ctk.CTk):
             ThemeManager.apply_mode(theme)
 
         HomeView(self, self)
+    
 
 
 if __name__ == "__main__":

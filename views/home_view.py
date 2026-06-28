@@ -2,8 +2,21 @@ import os
 import customtkinter as ctk
 from PIL import Image
 
+from components import (
+    SoftCard,
+    TitleLabel,
+    SubtitleLabel,
+    BodyLabel,
+    SmallLabel,
+    SidebarButton,
+    PrimaryButton,
+    SecondaryButton,
+)
+
 from views.settings_view import SettingsView
 from views.superuser_view import SuperuserView
+from views.checkin_view import CheckinView
+
 from utils.theme_manager import ThemeManager
 from utils.app_state import AppState
 
@@ -30,54 +43,107 @@ def load_ctk_image(path, size):
 
 
 class HomeView(ctk.CTkFrame):
+    """
+    HomeView experimental usando components/.
+
+    Esta versión:
+    - Usa componentes reutilizables.
+    - Quita Respiración como vista independiente.
+    - Conecta Check-in con CheckinView.
+    - Usa CTkFrame normal para evitar pantalla en blanco.
+    """
 
     def __init__(self, master, app):
-        self.app = app
-        self.current_user = app.current_user
+     self.app = app
+     self.current_user = app.current_user
 
-        self.theme_name = "light"
+     self.theme_name = "light"
 
-        if self.current_user:
-            self.theme_name = self.current_user.get("tema_visual", "light")
+     if self.current_user:
+        self.theme_name = self.current_user.get("tema_visual", "light")
 
-        self.theme = ThemeManager.get_theme(self.theme_name)
+     self.theme = ThemeManager.get_theme(self.theme_name)
 
-        super().__init__(
-            master,
-            corner_radius=0,
-            fg_color=self.theme["app_bg"]
-        )
+     super().__init__(
+        master,
+        corner_radius=0,
+        fg_color=self.theme["app_bg"]
+    )
 
-        self.pack(fill="both", expand=True)
+     self.pack(fill="both", expand=True)
 
-        self.logo_image = None
+     self.logo_image = None
+     self.content = None
 
-        self.create_responsive_layout()
-        self.create_sidebar()
-        self.create_content_area()
-        self.show_home_content()
-
+     self.create_layout()
+     self.create_content_area()
+     self.create_sidebar()
+     self.show_home_content()
     # =====================================================
-    # ESTILOS
+    # UTILIDADES
     # =====================================================
-
-    def card_style(self):
-        return {
-            "fg_color": self.theme["card_bg"],
-            "border_width": 1,
-            "border_color": self.theme["card_border"]
-        }
 
     def get_logo_path(self):
         if self.theme_name == "dark" and os.path.exists(DARK_LOGO_PATH):
             return DARK_LOGO_PATH
+
         return LOGO_PATH
+
+    def get_user_name(self):
+        if self.current_user:
+            return self.current_user.get("nombre", "Usuario")
+
+        return "Usuario"
+
+    def get_user_role(self):
+        if self.current_user:
+            return self.current_user.get("rol", "usuario")
+
+        return "Cuenta local"
+
+    def get_initials(self, name):
+        parts = name.strip().split()
+
+        if len(parts) >= 2:
+            return parts[0][0].upper() + parts[1][0].upper()
+
+        if len(parts) == 1 and len(parts[0]) > 0:
+            return parts[0][0].upper()
+
+        return "U"
+
+    def clear_content(self):
+      if not hasattr(self, "content") or self.content is None:
+        self.create_content_area()
+        return
+
+      for widget in self.content.winfo_children():
+        widget.destroy()
+
+    def configure_content_grid(self):
+        for column in range(3):
+            self.content.grid_columnconfigure(column, weight=1)
+
+        for row in range(8):
+            self.content.grid_rowconfigure(row, weight=0)
+
+        self.content.grid_rowconfigure(1, weight=1)
+        self.content.grid_rowconfigure(4, weight=1)
+
+    def get_column_padding(self, column):
+        if column == 0:
+            return (35, 10)
+
+        if column == 1:
+            return (10, 10)
+
+        return (10, 35)
 
     # =====================================================
     # LAYOUT PRINCIPAL
     # =====================================================
 
-    def create_responsive_layout(self):
+    def create_layout(self):
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=0)
         self.grid_columnconfigure(1, weight=1)
@@ -101,6 +167,16 @@ class HomeView(ctk.CTkFrame):
         self.main_area.grid_rowconfigure(0, weight=1)
         self.main_area.grid_columnconfigure(0, weight=1)
 
+    def create_content_area(self):
+        self.content = ctk.CTkFrame(
+            self.main_area,
+            fg_color=self.theme["app_bg"],
+            corner_radius=0
+        )
+        self.content.grid(row=0, column=0, sticky="nsew")
+
+        self.configure_content_grid()
+
     # =====================================================
     # SIDEBAR
     # =====================================================
@@ -111,11 +187,16 @@ class HomeView(ctk.CTkFrame):
         self.sidebar.grid_rowconfigure(2, weight=0)
         self.sidebar.grid_columnconfigure(0, weight=1)
 
-        self.sidebar_header = ctk.CTkFrame(
+        self.create_sidebar_header()
+        self.create_sidebar_menu()
+        self.create_user_card()
+
+    def create_sidebar_header(self):
+        header = ctk.CTkFrame(
             self.sidebar,
             fg_color="transparent"
         )
-        self.sidebar_header.grid(
+        header.grid(
             row=0,
             column=0,
             sticky="ew",
@@ -126,41 +207,37 @@ class HomeView(ctk.CTkFrame):
         self.logo_image = load_ctk_image(self.get_logo_path(), (105, 105))
 
         if self.logo_image:
-            self.logo_label = ctk.CTkLabel(
-                self.sidebar_header,
+            logo = ctk.CTkLabel(
+                header,
                 text="",
                 image=self.logo_image,
                 fg_color="transparent"
             )
         else:
-            self.logo_label = ctk.CTkLabel(
-                self.sidebar_header,
+            logo = ctk.CTkLabel(
+                header,
                 text="[ LOGO ]",
                 font=("Segoe UI", 18),
                 text_color=self.theme["text"],
                 fg_color="transparent"
             )
 
-        self.logo_label.pack(pady=(0, 5))
+        logo.pack(pady=(0, 5))
 
-        self.app_title = ctk.CTkLabel(
-            self.sidebar_header,
-            text="SoftRelief",
-            font=("Segoe UI Light", 30),
-            text_color=self.theme["text"],
-            fg_color="transparent"
-        )
-        self.app_title.pack()
+        TitleLabel(
+            header,
+            "SoftRelief",
+            size=28,
+            text_color=self.theme["text"]
+        ).pack()
 
-        self.app_slogan = ctk.CTkLabel(
-            self.sidebar_header,
-            text="Bienestar digital al alcance",
-            font=("Segoe UI", 11),
-            text_color=self.theme["text_soft"],
-            fg_color="transparent"
-        )
-        self.app_slogan.pack(pady=(0, 10))
+        SmallLabel(
+            header,
+            "Bienestar digital al alcance",
+            text_color=self.theme["text_soft"]
+        ).pack(pady=(0, 10))
 
+    def create_sidebar_menu(self):
         self.menu_frame = ctk.CTkScrollableFrame(
             self.sidebar,
             fg_color="transparent",
@@ -177,12 +254,11 @@ class HomeView(ctk.CTkFrame):
 
         self.menu_items = [
             ("Inicio", self.show_home_content),
-            ("Check-in", lambda: self.show_placeholder("Check-in", "Registra tu estado de ánimo y nivel de agotamiento.")),
-            ("Modo Calma", lambda: self.show_placeholder("Modo Calma", "Pausa guiada para recuperar equilibrio.")),
-            ("Respiración", lambda: self.show_placeholder("Respiración", "Ejercicios para respirar y centrarte.")),
-            ("Sonidos", lambda: self.show_placeholder("Sonidos", "Ambientes sonoros para concentración y relajación.")),
-            ("Microdescansos", lambda: self.show_placeholder("Microdescansos", "Pausas breves y actividades de baja carga cognitiva.")),
-            ("Historial", lambda: self.show_placeholder("Historial", "Consulta tus sesiones, pausas y progreso.")),
+            ("Check-in", self.show_checkin),
+            ("Modo Calma", self.show_calm_mode),
+            ("Sonidos", self.show_sounds),
+            ("Microdescansos", self.show_microbreaks),
+            ("Historial", self.show_history),
             ("Configuración", self.show_settings),
         ]
 
@@ -190,25 +266,20 @@ class HomeView(ctk.CTkFrame):
             self.menu_items.append(("Superuser", self.show_superuser_panel))
 
         for text, command in self.menu_items:
-            button = ctk.CTkButton(
+            SidebarButton(
                 self.menu_frame,
                 text=text,
+                command=command,
                 width=180,
-                height=38,
-                corner_radius=12,
-                anchor="w",
-                font=("Segoe UI", 14),
-                fg_color="transparent",
-                hover_color=self.theme["menu_hover"],
-                text_color=self.theme["text"],
-                command=command
-            )
-            button.pack(fill="x", pady=4)
-
-        self.create_user_card()
+                height=38
+            ).pack(fill="x", pady=4)
 
     def create_user_card(self):
-        self.user_card = ctk.CTkFrame(
+        user_name = self.get_user_name()
+        user_role = self.get_user_role()
+        initials = self.get_initials(user_name)
+
+        card = SoftCard(
             self.sidebar,
             height=75,
             corner_radius=16,
@@ -216,26 +287,17 @@ class HomeView(ctk.CTkFrame):
             border_width=1,
             border_color=self.theme["card_border"]
         )
-        self.user_card.grid(
+        card.grid(
             row=2,
             column=0,
             sticky="ew",
             padx=15,
             pady=(10, 20)
         )
-        self.user_card.grid_propagate(False)
+        card.grid_propagate(False)
 
-        user_name = "Usuario"
-        user_role = "Cuenta local"
-
-        if self.current_user:
-            user_name = self.current_user.get("nombre", "Usuario")
-            user_role = self.current_user.get("rol", "usuario")
-
-        initials = self.get_initials(user_name)
-
-        self.avatar = ctk.CTkLabel(
-            self.user_card,
+        avatar = ctk.CTkLabel(
+            card,
             text=initials,
             width=38,
             height=38,
@@ -244,7 +306,7 @@ class HomeView(ctk.CTkFrame):
             text_color=self.theme["avatar_text"],
             font=("Segoe UI", 13)
         )
-        self.avatar.grid(
+        avatar.grid(
             row=0,
             column=0,
             rowspan=2,
@@ -252,82 +314,57 @@ class HomeView(ctk.CTkFrame):
             pady=16
         )
 
-        self.user_name_label = ctk.CTkLabel(
-            self.user_card,
+        user_label = ctk.CTkLabel(
+            card,
             text=user_name,
             font=("Segoe UI", 12),
             text_color=self.theme["text"],
             fg_color="transparent",
             anchor="w"
         )
-        self.user_name_label.grid(
+        user_label.grid(
             row=0,
             column=1,
             sticky="w",
             pady=(15, 0)
         )
 
-        self.user_role_label = ctk.CTkLabel(
-            self.user_card,
+        role_label = ctk.CTkLabel(
+            card,
             text=user_role,
             font=("Segoe UI", 10),
             text_color=self.theme["text_soft"],
             fg_color="transparent",
             anchor="w"
         )
-        self.user_role_label.grid(
+        role_label.grid(
             row=1,
             column=1,
             sticky="w",
             pady=(0, 15)
         )
 
-    def get_initials(self, name):
-        parts = name.strip().split()
-
-        if len(parts) >= 2:
-            return parts[0][0].upper() + parts[1][0].upper()
-
-        if len(parts) == 1 and len(parts[0]) > 0:
-            return parts[0][0].upper()
-
-        return "U"
-
     # =====================================================
-    # ÁREA DE CONTENIDO
-    # =====================================================
-
-    def create_content_area(self):
-        self.content = ctk.CTkScrollableFrame(
-            self.main_area,
-            fg_color=self.theme["app_bg"],
-            corner_radius=0
-        )
-        self.content.grid(row=0, column=0, sticky="nsew")
-
-        self.content.grid_columnconfigure(0, weight=1)
-        self.content.grid_columnconfigure(1, weight=1)
-        self.content.grid_columnconfigure(2, weight=1)
-
-    def clear_content(self):
-        for widget in self.content.winfo_children():
-            widget.destroy()
-
-    # =====================================================
-    # HOME CONTENT
+    # HOME
     # =====================================================
 
     def show_home_content(self):
         self.clear_content()
+        self.configure_content_grid()
 
-        user_name = "Usuario"
+        self.create_home_header()
+        self.create_home_top_cards()
+        self.create_quick_actions()
+        self.create_bottom_cards()
 
-        if self.current_user:
-            user_name = self.current_user.get("nombre", "Usuario")
-
-        header = ctk.CTkFrame(
+    def create_home_header(self):
+        header = SoftCard(
             self.content,
-            fg_color="transparent"
+            height=120,
+            corner_radius=18,
+            fg_color=self.theme["card_bg"],
+            border_width=1,
+            border_color=self.theme["card_border"]
         )
         header.grid(
             row=0,
@@ -337,6 +374,8 @@ class HomeView(ctk.CTkFrame):
             padx=35,
             pady=(30, 15)
         )
+        header.grid_propagate(False)
+
         header.grid_columnconfigure(0, weight=1)
         header.grid_columnconfigure(1, weight=0)
         header.grid_columnconfigure(2, weight=0)
@@ -348,71 +387,155 @@ class HomeView(ctk.CTkFrame):
         title_box.grid(
             row=0,
             column=0,
-            sticky="w"
+            sticky="w",
+            padx=28,
+            pady=18
         )
 
-        title = ctk.CTkLabel(
+        TitleLabel(
             title_box,
-            text="Inicio",
-            font=("Segoe UI", 34),
-            text_color=self.theme["text"],
-            fg_color="transparent"
-        )
-        title.pack(anchor="w")
+            "Inicio",
+            size=34,
+            text_color=self.theme["text"]
+        ).pack(anchor="w")
 
-        subtitle = ctk.CTkLabel(
+        SubtitleLabel(
             title_box,
-            text="Tu bienestar, tu momento, tu equilibrio.",
-            font=("Segoe UI", 15),
-            text_color=self.theme["text_soft"],
-            fg_color="transparent"
-        )
-        subtitle.pack(anchor="w")
+            "Tu bienestar, tu momento, tu equilibrio.",
+            size=15,
+            text_color=self.theme["text_soft"]
+        ).pack(anchor="w")
 
-        greeting = ctk.CTkLabel(
+        SmallLabel(
             header,
-            text=f"Hola, {user_name}",
-            font=("Segoe UI", 15),
-            text_color=self.theme["text"],
-            fg_color="transparent"
-        )
-        greeting.grid(
+            f"Hola, {self.get_user_name()}",
+            size=14,
+            text_color=self.theme["text"]
+        ).grid(
             row=0,
             column=1,
-            padx=(10, 10),
-            sticky="e"
+            sticky="e",
+            padx=(10, 10)
         )
 
-        logout_button = ctk.CTkButton(
+        SecondaryButton(
             header,
             text="Cerrar sesión",
             width=120,
             height=32,
-            corner_radius=12,
             fg_color=self.theme["card_bg"],
             hover_color=self.theme["menu_hover"],
+            text_color=self.theme["text"],
             border_width=1,
             border_color=self.theme["card_border"],
-            text_color=self.theme["text"],
             command=self.logout
-        )
-        logout_button.grid(
+        ).grid(
             row=0,
             column=2,
-            sticky="e"
+            sticky="e",
+            padx=(0, 25)
         )
 
-        self.create_welcome_card(row=1, column=0)
-        self.create_status_card(row=1, column=2)
-
-        actions_title = ctk.CTkLabel(
+    def create_home_top_cards(self):
+        welcome_card = SoftCard(
             self.content,
-            text="Acciones rápidas",
-            font=("Segoe UI", 16),
-            text_color=self.theme["text"],
-            fg_color="transparent"
+            height=220,
+            corner_radius=18,
+            fg_color=self.theme["card_bg"],
+            border_width=1,
+            border_color=self.theme["card_border"]
         )
-        actions_title.grid(
+        welcome_card.grid(
+            row=1,
+            column=0,
+            columnspan=2,
+            sticky="nsew",
+            padx=(35, 15),
+            pady=10
+        )
+        welcome_card.grid_propagate(False)
+
+        SubtitleLabel(
+            welcome_card,
+            "Bienvenido a",
+            size=20,
+            text_color=self.theme["text"]
+        ).pack(anchor="w", padx=30, pady=(30, 0))
+
+        TitleLabel(
+            welcome_card,
+            "SoftRelief",
+            size=42,
+            text_color=self.theme["text"]
+        ).pack(anchor="w", padx=30)
+
+        BodyLabel(
+            welcome_card,
+            "Herramientas simples para cuidar tu mente,\n"
+            "realizar pausas y recuperar enfoque durante el día.",
+            size=15,
+            text_color=self.theme["text_soft"],
+            wraplength=580
+        ).pack(anchor="w", padx=30, pady=(15, 0))
+
+        status_card = SoftCard(
+            self.content,
+            height=220,
+            corner_radius=18,
+            fg_color=self.theme["card_bg"],
+            border_width=1,
+            border_color=self.theme["card_border"]
+        )
+        status_card.grid(
+            row=1,
+            column=2,
+            sticky="nsew",
+            padx=(15, 35),
+            pady=10
+        )
+        status_card.grid_propagate(False)
+
+        TitleLabel(
+            status_card,
+            "Tu estado de hoy",
+            size=20,
+            text_color=self.theme["text"]
+        ).pack(anchor="w", padx=25, pady=(25, 5))
+
+        last_checkin = getattr(self.app, "last_checkin", None)
+
+        if last_checkin:
+            status_text = (
+                f"Estrés: {last_checkin.get('stress', '-')}/10\n"
+                f"Energía: {last_checkin.get('energy', '-')}/10\n"
+                f"Ánimo: {last_checkin.get('mood', '-')}"
+            )
+        else:
+            status_text = "Sin check-in registrado"
+
+        BodyLabel(
+            status_card,
+            status_text,
+            size=15,
+            text_color=self.theme["text_soft"],
+            wraplength=260
+        ).pack(anchor="w", padx=25, pady=(10, 20))
+
+        PrimaryButton(
+            status_card,
+            text="Realizar Check-in",
+            width=180,
+            height=36,
+            command=self.show_checkin
+        ).pack(anchor="w", padx=25)
+
+    def create_quick_actions(self):
+        TitleLabel(
+            self.content,
+            "Acciones rápidas",
+            size=18,
+            text_color=self.theme["text"]
+        ).grid(
             row=2,
             column=0,
             columnspan=3,
@@ -424,154 +547,35 @@ class HomeView(ctk.CTkFrame):
         self.create_action_card(
             row=3,
             column=0,
-            title="Iniciar Modo Calma",
+            title="Modo Calma",
             description="Relaja tu mente y reduce la tensión.",
-            command=lambda: self.show_placeholder("Modo Calma", "Pausa guiada para recuperar equilibrio.")
+            command=self.show_calm_mode
         )
 
         self.create_action_card(
             row=3,
             column=1,
-            title="Respiración guiada",
-            description="Ejercicios para respirar y centrarte.",
-            command=lambda: self.show_placeholder("Respiración", "Ejercicios para respirar y centrarte.")
+            title="Check-in",
+            description="Registra cómo te sientes hoy.",
+            command=self.show_checkin
         )
 
         self.create_action_card(
             row=3,
             column=2,
-            title="Pausa breve",
-            description="Tómate 5 minutos para ti.",
-            command=lambda: self.show_placeholder("Microdescansos", "Pausas breves y actividades de baja carga cognitiva.")
+            title="Microdescanso",
+            description="Tómate una pausa breve.",
+            command=self.show_microbreaks
         )
-
-        self.create_recommended_card(row=4, column=0)
-        self.create_recent_card(row=4, column=1)
-        self.create_quote_card(row=4, column=2)
-
-    # =====================================================
-    # CARDS
-    # =====================================================
-
-    def create_welcome_card(self, row, column):
-        card = ctk.CTkFrame(
-            self.content,
-            height=220,
-            corner_radius=18,
-            **self.card_style()
-        )
-        card.grid(
-            row=row,
-            column=column,
-            columnspan=2,
-            sticky="nsew",
-            padx=(35, 15),
-            pady=10
-        )
-        card.grid_propagate(False)
-
-        label = ctk.CTkLabel(
-            card,
-            text="Bienvenido a",
-            font=("Segoe UI", 20),
-            text_color=self.theme["text"],
-            fg_color="transparent"
-        )
-        label.pack(anchor="w", padx=30, pady=(30, 0))
-
-        title = ctk.CTkLabel(
-            card,
-            text="SoftRelief",
-            font=("Segoe UI Light", 42),
-            text_color=self.theme["text"],
-            fg_color="transparent"
-        )
-        title.pack(anchor="w", padx=30)
-
-        text = ctk.CTkLabel(
-            card,
-            text="Herramientas simples para cuidar tu mente,\n"
-                 "realizar pausas y recuperar enfoque durante el día.",
-            font=("Segoe UI", 15),
-            text_color=self.theme["text_soft"],
-            justify="left",
-            fg_color="transparent"
-        )
-        text.pack(anchor="w", padx=30, pady=(15, 0))
-
-    def create_status_card(self, row, column):
-        card = ctk.CTkFrame(
-            self.content,
-            height=220,
-            corner_radius=18,
-            **self.card_style()
-        )
-        card.grid(
-            row=row,
-            column=column,
-            sticky="nsew",
-            padx=(15, 35),
-            pady=10
-        )
-        card.grid_propagate(False)
-
-        title = ctk.CTkLabel(
-            card,
-            text="Tu estado de hoy",
-            font=("Segoe UI", 20),
-            text_color=self.theme["text"],
-            fg_color="transparent"
-        )
-        title.pack(anchor="w", padx=25, pady=(20, 0))
-
-        subtitle = ctk.CTkLabel(
-            card,
-            text="Actualizado ahora",
-            font=("Segoe UI", 12),
-            text_color=self.theme["text_soft"],
-            fg_color="transparent"
-        )
-        subtitle.pack(anchor="w", padx=25)
-
-        info_frame = ctk.CTkFrame(
-            card,
-            fg_color="transparent"
-        )
-        info_frame.pack(
-            expand=True,
-            fill="both",
-            padx=25,
-            pady=20
-        )
-        info_frame.grid_columnconfigure(0, weight=1)
-        info_frame.grid_columnconfigure(1, weight=1)
-
-        stress = ctk.CTkLabel(
-            info_frame,
-            text="Estrés\n4/10\nModerado",
-            font=("Segoe UI", 18),
-            justify="center",
-            text_color=self.theme["text"],
-            fg_color="transparent"
-        )
-        stress.grid(row=0, column=0, sticky="nsew")
-
-        energy = ctk.CTkLabel(
-            info_frame,
-            text="Energía\n7/10\nBuena",
-            font=("Segoe UI", 18),
-            justify="center",
-            text_color=self.theme["text"],
-            fg_color="transparent"
-        )
-        energy.grid(row=0, column=1, sticky="nsew")
 
     def create_action_card(self, row, column, title, description, command):
-        card = ctk.CTkFrame(
+        card = SoftCard(
             self.content,
             height=95,
             corner_radius=18,
-            **self.card_style()
+            fg_color=self.theme["card_bg"],
+            border_width=1,
+            border_color=self.theme["card_border"]
         )
         card.grid(
             row=row,
@@ -597,28 +601,21 @@ class HomeView(ctk.CTkFrame):
             pady=15
         )
 
-        title_label = ctk.CTkLabel(
+        TitleLabel(
             text_box,
-            text=title,
-            font=("Segoe UI", 15),
-            text_color=self.theme["text"],
-            fg_color="transparent",
-            anchor="w"
-        )
-        title_label.pack(anchor="w")
+            title,
+            size=15,
+            text_color=self.theme["text"]
+        ).pack(anchor="w")
 
-        desc_label = ctk.CTkLabel(
+        SmallLabel(
             text_box,
-            text=description,
-            font=("Segoe UI", 12),
-            text_color=self.theme["text_soft"],
-            justify="left",
-            fg_color="transparent",
-            anchor="w"
-        )
-        desc_label.pack(anchor="w", pady=(5, 0))
+            description,
+            size=12,
+            text_color=self.theme["text_soft"]
+        ).pack(anchor="w", pady=(5, 0))
 
-        open_button = ctk.CTkButton(
+        SecondaryButton(
             card,
             text=">",
             width=36,
@@ -628,50 +625,58 @@ class HomeView(ctk.CTkFrame):
             hover_color=self.theme["menu_hover"],
             text_color=self.theme["accent"],
             command=command
-        )
-        open_button.grid(
+        ).grid(
             row=0,
             column=1,
             padx=(0, 18),
             pady=30
         )
 
-    def create_recommended_card(self, row, column):
+    def create_bottom_cards(self):
         self.create_info_card(
-            row=row,
-            column=column,
+            row=4,
+            column=0,
             title="Sesión recomendada",
-            text="Respiración para volver al centro\n7 min · Respiración",
+            text="Modo Calma con respiración suave\n7 min · Pausa guiada",
             button_text="Iniciar sesión",
-            command=lambda: self.show_placeholder("Respiración", "Ejercicios para respirar y centrarte.")
+            command=self.show_calm_mode
         )
 
-    def create_recent_card(self, row, column):
         self.create_info_card(
-            row=row,
-            column=column,
+            row=4,
+            column=1,
             title="Sesiones recientes",
-            text="Respiración consciente · 5 min\n"
+            text="Modo Calma · 5 min\n"
                  "Sonidos de lluvia · 20 min\n"
                  "Pausa breve · 5 min"
         )
 
-    def create_quote_card(self, row, column):
+        last_checkin = getattr(self.app, "last_checkin", None)
+
+        if last_checkin and last_checkin.get("phrase"):
+            quote_text = f"“{last_checkin.get('phrase')}”"
+        else:
+            quote_text = (
+                "“No se trata de tener tiempo,\n"
+                "sino de tomarte el tiempo\n"
+                "para lo que te hace bien.”"
+            )
+
         self.create_info_card(
-            row=row,
-            column=column,
+            row=4,
+            column=2,
             title="Frase para hoy",
-            text="“No se trata de tener tiempo,\n"
-                 "sino de tomarte el tiempo\n"
-                 "para lo que te hace bien.”"
+            text=quote_text
         )
 
     def create_info_card(self, row, column, title, text, button_text=None, command=None):
-        card = ctk.CTkFrame(
+        card = SoftCard(
             self.content,
             height=185,
             corner_radius=18,
-            **self.card_style()
+            fg_color=self.theme["card_bg"],
+            border_width=1,
+            border_color=self.theme["card_border"]
         )
         card.grid(
             row=row,
@@ -682,81 +687,147 @@ class HomeView(ctk.CTkFrame):
         )
         card.grid_propagate(False)
 
-        title_label = ctk.CTkLabel(
+        TitleLabel(
             card,
-            text=title,
-            font=("Segoe UI", 16),
-            text_color=self.theme["text"],
-            fg_color="transparent",
-            anchor="w"
-        )
-        title_label.pack(
-            anchor="w",
-            padx=20,
-            pady=(18, 10)
-        )
+            title,
+            size=16,
+            text_color=self.theme["text"]
+        ).pack(anchor="w", padx=20, pady=(18, 10))
 
-        text_label = ctk.CTkLabel(
+        BodyLabel(
             card,
-            text=text,
-            font=("Segoe UI", 13),
+            text,
+            size=13,
             text_color=self.theme["text_soft"],
-            justify="left",
-            fg_color="transparent",
-            anchor="w"
-        )
-        text_label.pack(
-            anchor="w",
-            padx=20
-        )
+            wraplength=280
+        ).pack(anchor="w", padx=20)
 
         if button_text and command:
-            button = ctk.CTkButton(
+            PrimaryButton(
                 card,
                 text=button_text,
                 width=160,
                 height=34,
-                corner_radius=12,
-                fg_color=self.theme["button"],
-                hover_color=self.theme["button_hover"],
-                text_color="#FFFFFF",
                 command=command
-            )
-            button.pack(
-                anchor="w",
-                padx=20,
-                pady=(20, 0)
-            )
-
-    def get_column_padding(self, column):
-        if column == 0:
-            return (35, 10)
-        if column == 1:
-            return (10, 10)
-        return (10, 35)
+            ).pack(anchor="w", padx=20, pady=(20, 0))
 
     # =====================================================
-    # SETTINGS Y SUPERUSER
+    # VISTAS INTERNAS
     # =====================================================
+
+    def show_checkin(self):
+        print("Abriendo Check-in experimental")
+        self.clear_content()
+        self.configure_content_grid()
+
+        try:
+            view = CheckinView(
+                master=self.content,
+                app=self.app,
+                user=self.current_user
+            )
+
+            if not view.winfo_manager():
+                view.grid(
+                    row=0,
+                    column=0,
+                    columnspan=3,
+                    sticky="nsew",
+                    padx=35,
+                    pady=30
+                )
+
+        except Exception as error:
+            self.show_error_screen(
+                "Error al abrir Check-in",
+                str(error)
+            )
 
     def show_settings(self):
         self.clear_content()
-        SettingsView(self.content, self.app)
+        self.configure_content_grid()
+
+        try:
+            view = SettingsView(self.content, self.app)
+
+            if hasattr(view, "winfo_manager") and not view.winfo_manager():
+                view.grid(
+                    row=0,
+                    column=0,
+                    columnspan=3,
+                    sticky="nsew",
+                    padx=35,
+                    pady=30
+                )
+
+        except Exception as error:
+            self.show_error_screen(
+                "Error al abrir Configuración",
+                str(error)
+            )
 
     def show_superuser_panel(self):
         self.clear_content()
-        SuperuserView(self.content, self.app)
+        self.configure_content_grid()
+
+        try:
+            view = SuperuserView(self.content, self.app)
+
+            if hasattr(view, "winfo_manager") and not view.winfo_manager():
+                view.grid(
+                    row=0,
+                    column=0,
+                    columnspan=3,
+                    sticky="nsew",
+                    padx=35,
+                    pady=30
+                )
+
+        except Exception as error:
+            self.show_error_screen(
+                "Error al abrir Superuser",
+                str(error)
+            )
+
+    def show_calm_mode(self):
+        self.show_placeholder(
+            "Modo Calma",
+            "Pausa guiada para recuperar equilibrio. La respiración guiada forma parte de este módulo."
+        )
+
+    def show_sounds(self):
+        self.show_placeholder(
+            "Sonidos",
+            "Ambientes sonoros para concentración y relajación."
+        )
+
+    def show_microbreaks(self):
+        self.show_placeholder(
+            "Microdescansos",
+            "Pausas breves y actividades de baja carga cognitiva."
+        )
+
+    def show_history(self):
+        self.show_placeholder(
+            "Historial",
+            "Consulta tus sesiones, pausas y progreso."
+        )
 
     # =====================================================
-    # PLACEHOLDERS
+    # PLACEHOLDERS Y ERRORES
     # =====================================================
 
     def show_placeholder(self, title, subtitle):
         self.clear_content()
+        self.configure_content_grid()
 
-        header = ctk.CTkFrame(
+        header = SoftCard(
             self.content,
-            fg_color="transparent"
+            height=120,
+            corner_radius=18,
+            fg_color=self.theme["card_bg"],
+            border_width=1,
+            border_color=self.theme["card_border"]
         )
         header.grid(
             row=0,
@@ -766,30 +837,29 @@ class HomeView(ctk.CTkFrame):
             padx=35,
             pady=(30, 20)
         )
+        header.grid_propagate(False)
 
-        title_label = ctk.CTkLabel(
+        TitleLabel(
             header,
-            text=title,
-            font=("Segoe UI", 34),
-            text_color=self.theme["text"],
-            fg_color="transparent"
-        )
-        title_label.pack(anchor="w")
+            title,
+            size=34,
+            text_color=self.theme["text"]
+        ).pack(anchor="w", padx=28, pady=(18, 0))
 
-        subtitle_label = ctk.CTkLabel(
+        SubtitleLabel(
             header,
-            text=subtitle,
-            font=("Segoe UI", 15),
-            text_color=self.theme["text_soft"],
-            fg_color="transparent"
-        )
-        subtitle_label.pack(anchor="w")
+            subtitle,
+            size=15,
+            text_color=self.theme["text_soft"]
+        ).pack(anchor="w", padx=28)
 
-        card = ctk.CTkFrame(
+        card = SoftCard(
             self.content,
             height=400,
             corner_radius=20,
-            **self.card_style()
+            fg_color=self.theme["card_bg"],
+            border_width=1,
+            border_color=self.theme["card_border"]
         )
         card.grid(
             row=1,
@@ -801,40 +871,74 @@ class HomeView(ctk.CTkFrame):
         )
         card.grid_propagate(False)
 
-        text = ctk.CTkLabel(
+        BodyLabel(
             card,
-            text=f"Pantalla '{title}' pendiente de implementar.\n\n"
-                 "Aquí se cargarán los componentes finales,\n"
-                 "gráficos, animaciones y lógica correspondiente.",
-            font=("Segoe UI", 20),
+            f"Pantalla '{title}' pendiente de implementar.\n\n"
+            "Aquí se cargarán los componentes finales,\n"
+            "gráficos, animaciones y lógica correspondiente.",
+            size=20,
             text_color=self.theme["text"],
-            justify="center",
-            fg_color="transparent"
-        )
-        text.place(
-            relx=0.5,
-            rely=0.5,
-            anchor="center"
-        )
+            wraplength=520,
+            justify="center"
+        ).place(relx=0.5, rely=0.5, anchor="center")
 
-        back_button = ctk.CTkButton(
+        PrimaryButton(
             self.content,
             text="Volver a Inicio",
             width=160,
             height=38,
-            corner_radius=12,
-            fg_color=self.theme["button"],
-            hover_color=self.theme["button_hover"],
-            text_color="#FFFFFF",
             command=self.show_home_content
-        )
-        back_button.grid(
+        ).grid(
             row=2,
             column=0,
             sticky="w",
             padx=35,
             pady=20
         )
+
+    def show_error_screen(self, title, error):
+        self.clear_content()
+        self.configure_content_grid()
+
+        card = SoftCard(
+            self.content,
+            height=320,
+            corner_radius=20,
+            fg_color=self.theme["card_bg"],
+            border_width=1,
+            border_color=self.theme["card_border"]
+        )
+        card.grid(
+            row=0,
+            column=0,
+            columnspan=3,
+            sticky="nsew",
+            padx=35,
+            pady=35
+        )
+        card.grid_propagate(False)
+
+        TitleLabel(
+            card,
+            title,
+            size=24,
+            text_color="#DC2626"
+        ).pack(anchor="w", padx=25, pady=(25, 10))
+
+        BodyLabel(
+            card,
+            error,
+            size=14,
+            text_color=self.theme["text"],
+            wraplength=760
+        ).pack(anchor="w", padx=25, pady=10)
+
+        PrimaryButton(
+            card,
+            text="Volver a Inicio",
+            width=160,
+            command=self.show_home_content
+        ).pack(anchor="w", padx=25, pady=20)
 
     # =====================================================
     # SESIÓN

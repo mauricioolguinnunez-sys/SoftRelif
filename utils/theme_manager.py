@@ -56,3 +56,9 @@ class ThemeManager:
             ctk.set_appearance_mode("dark")
         else:
             ctk.set_appearance_mode("light")
+    @staticmethod
+    def get_colors(theme_name=None):
+        if theme_name is None:
+            theme_name = "light"
+
+        return ThemeManager.get_theme(theme_name)
