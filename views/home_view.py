@@ -802,9 +802,19 @@ class HomeView(ctk.CTkFrame):
         )
 
     def show_microbreaks(self):
-        self.show_placeholder(
-            "Microdescansos",
-            "Pausas breves y actividades de baja carga cognitiva."
+        self.clear_content()
+        self.configure_content_grid()
+        from views.microbreaks_view import MicrobreaksView
+        view = MicrobreaksView(
+            master = self.content,
+            app = self.app,
+            user = self.current_user
+        )
+        view.grid(
+            row = 0,
+            column= 0,
+            columnspan = 3,
+            sticky = "nsnew"
         )
 
     def show_history(self):
