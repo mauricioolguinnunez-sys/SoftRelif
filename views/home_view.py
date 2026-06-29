@@ -113,23 +113,24 @@ class HomeView(ctk.CTkFrame):
         return "U"
 
     def clear_content(self):
-      if not hasattr(self, "content") or self.content is None:
+     if not hasattr(self, "content") or self.content is None:
         self.create_content_area()
         return
 
-      for widget in self.content.winfo_children():
+     for widget in self.content.winfo_children():
+        widget.destroy()
+     for widget in self.content.winfo_children():
         widget.destroy()
 
     def configure_content_grid(self):
-        for column in range(3):
-            self.content.grid_columnconfigure(column, weight=1)
+       if not hasattr(self, "content") or self.content is None:
+        return
 
-        for row in range(8):
-            self.content.grid_rowconfigure(row, weight=0)
+       for col in range(3):
+        self.content.grid_columnconfigure(col, weight=1)
 
-        self.content.grid_rowconfigure(1, weight=1)
-        self.content.grid_rowconfigure(4, weight=1)
-
+       for row in range(20):
+        self.content.grid_rowconfigure(row, weight=0)
     def get_column_padding(self, column):
         if column == 0:
             return (35, 10)
@@ -168,15 +169,21 @@ class HomeView(ctk.CTkFrame):
         self.main_area.grid_columnconfigure(0, weight=1)
 
     def create_content_area(self):
-        self.content = ctk.CTkFrame(
-            self.main_area,
-            fg_color=self.theme["app_bg"],
-            corner_radius=0
-        )
-        self.content.grid(row=0, column=0, sticky="nsew")
+     self.content = ctk.CTkScrollableFrame(
+        self.main_area,
+        fg_color=self.theme["app_bg"],
+        corner_radius=0,
+        scrollbar_button_color=self.theme.get("accent", "#7C3AED"),
+        scrollbar_button_hover_color=self.theme.get("button_hover", "#6D28D9")
+    )
 
-        self.configure_content_grid()
+     self.content.grid(
+        row=0,
+        column=0,
+        sticky="nsew"
+    )
 
+     self.configure_content_grid()
     # =====================================================
     # SIDEBAR
     # =====================================================
@@ -818,10 +825,23 @@ class HomeView(ctk.CTkFrame):
         )
 
     def show_history(self):
-        self.show_placeholder(
-            "Historial",
-            "Consulta tus sesiones, pausas y progreso."
+        self.clear_content()
+        self.configure_content_grid()
+
+        from views.history_view import HistoryView
+
+        view = HistoryView(
+        master=self.content,
+        app=self.app,
+        user=self.current_user
         )
+
+        view.grid(
+        row=0,
+        column=0,
+        columnspan=3,
+        sticky="nsew"
+    )
 
     # =====================================================
     # PLACEHOLDERS Y ERRORES
