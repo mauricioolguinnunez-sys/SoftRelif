@@ -13,30 +13,34 @@ def create_tables():
     cursor = connection.cursor()
 
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS usuarios (
-            id_usuario INTEGER PRIMARY KEY AUTOINCREMENT,
-            nombre TEXT NOT NULL,
-            usuario TEXT NOT NULL UNIQUE,
-            correo TEXT NOT NULL UNIQUE,
-            password_hash TEXT NOT NULL,
-            fecha_registro TEXT NOT NULL,
-            rol TEXT NOT NULL DEFAULT 'usuario',
-            estado TEXT NOT NULL DEFAULT 'activa'
-        );
+    CREATE TABLE IF NOT EXISTS usuarios (
+        id_usuario INT NOT NULL AUTO_INCREMENT,
+        nombre VARCHAR(100) NOT NULL,
+        usuario VARCHAR(80) NOT NULL UNIQUE,
+        correo VARCHAR(150) NOT NULL UNIQUE,
+        password_hash VARCHAR(255) NOT NULL,
+        fecha_registro VARCHAR(30) NOT NULL,
+        rol VARCHAR(30) NOT NULL DEFAULT 'usuario',
+        estado VARCHAR(30) NOT NULL DEFAULT 'activa',
+        PRIMARY KEY (id_usuario)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     """)
 
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS preferencias (
-            id_preferencia INTEGER PRIMARY KEY AUTOINCREMENT,
-            id_usuario INTEGER NOT NULL UNIQUE,
-            tema_visual TEXT DEFAULT 'light',
-            sonido_default TEXT DEFAULT 'lluvia',
-            volumen INTEGER DEFAULT 50,
-            animaciones INTEGER DEFAULT 1,
-            FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
-                ON DELETE CASCADE
-                ON UPDATE CASCADE
-        );
+    CREATE TABLE IF NOT EXISTS preferencias (
+        id_preferencia INT NOT NULL AUTO_INCREMENT,
+        id_usuario INT NOT NULL UNIQUE,
+        tema_visual VARCHAR(20) DEFAULT 'light',
+        sonido_default VARCHAR(50) DEFAULT 'lluvia',
+        volumen INT DEFAULT 50,
+        animaciones INT DEFAULT 1,
+        PRIMARY KEY (id_preferencia),
+        CONSTRAINT fk_preferencias_usuario
+            FOREIGN KEY (id_usuario)
+            REFERENCES usuarios(id_usuario)
+            ON DELETE CASCADE
+            ON UPDATE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     """)
 
     connection.commit()
@@ -44,24 +48,24 @@ def create_tables():
     ensure_columns(cursor, connection)
     create_superuser(cursor, connection)
 
+    cursor.close()
     connection.close()
 
 
+def column_exists(cursor, table_name, column_name):
+    cursor.execute(f"SHOW COLUMNS FROM {table_name} LIKE %s;", (column_name,))
+    return cursor.fetchone() is not None
+
+
 def ensure_columns(cursor, connection):
-    cursor.execute("PRAGMA table_info(usuarios);")
-    columnas_usuarios = [columna["name"] for columna in cursor.fetchall()]
+    if not column_exists(cursor, "usuarios", "rol"):
+        cursor.execute("ALTER TABLE usuarios ADD COLUMN rol VARCHAR(30) NOT NULL DEFAULT 'usuario';")
 
-    if "rol" not in columnas_usuarios:
-        cursor.execute("ALTER TABLE usuarios ADD COLUMN rol TEXT NOT NULL DEFAULT 'usuario';")
+    if not column_exists(cursor, "usuarios", "estado"):
+        cursor.execute("ALTER TABLE usuarios ADD COLUMN estado VARCHAR(30) NOT NULL DEFAULT 'activa';")
 
-    if "estado" not in columnas_usuarios:
-        cursor.execute("ALTER TABLE usuarios ADD COLUMN estado TEXT NOT NULL DEFAULT 'activa';")
-
-    cursor.execute("PRAGMA table_info(preferencias);")
-    columnas_preferencias = [columna["name"] for columna in cursor.fetchall()]
-
-    if "tema_visual" not in columnas_preferencias:
-        cursor.execute("ALTER TABLE preferencias ADD COLUMN tema_visual TEXT DEFAULT 'light';")
+    if not column_exists(cursor, "preferencias", "tema_visual"):
+        cursor.execute("ALTER TABLE preferencias ADD COLUMN tema_visual VARCHAR(20) DEFAULT 'light';")
 
     connection.commit()
 
@@ -92,7 +96,7 @@ def create_superuser(cursor, connection):
             rol,
             estado
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?);
+        VALUES (%s, %s, %s, %s, %s, %s, %s);
     """, (
         "Superuser SoftRelief",
         SUPERUSER_USERNAME,
@@ -113,7 +117,7 @@ def create_superuser(cursor, connection):
             volumen,
             animaciones
         )
-        VALUES (?, ?, ?, ?, ?);
+        VALUES (%s, %s, %s, %s, %s);
     """, (
         id_superuser,
         "light",
@@ -127,4 +131,4 @@ def create_superuser(cursor, connection):
 
 if __name__ == "__main__":
     create_tables()
-    print("Base de datos creada correctamente.")
+    print("Base de datos creada correctamente en MariaDB.")

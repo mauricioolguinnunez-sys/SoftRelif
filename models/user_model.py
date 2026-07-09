@@ -24,7 +24,7 @@ class UserModel:
                     rol,
                     estado
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?);
+                VALUES (%s, %s, %s, %s, %s, %s, %s);
             """, (
                 nombre,
                 usuario,
@@ -45,7 +45,7 @@ class UserModel:
                     volumen,
                     animaciones
                 )
-                VALUES (?, ?, ?, ?, ?);
+                VALUES (%s, %s, %s, %s, %s);
             """, (
                 id_usuario,
                 "light",
@@ -71,6 +71,7 @@ class UserModel:
             }
 
         finally:
+            cursor.close()
             connection.close()
 
     @staticmethod
@@ -81,10 +82,12 @@ class UserModel:
         cursor.execute("""
             SELECT *
             FROM usuarios
-            WHERE usuario = ?;
+            WHERE usuario = %s;
         """, (usuario,))
 
         user = cursor.fetchone()
+
+        cursor.close()
         connection.close()
 
         if user is None:
@@ -129,10 +132,12 @@ class UserModel:
         cursor.execute("""
             SELECT *
             FROM usuarios
-            WHERE usuario = ? OR correo = ?;
+            WHERE usuario = %s OR correo = %s;
         """, (usuario, correo))
 
         user = cursor.fetchone()
+
+        cursor.close()
         connection.close()
 
         return user is not None
@@ -145,14 +150,16 @@ class UserModel:
         cursor.execute("""
             SELECT *
             FROM preferencias
-            WHERE id_usuario = ?;
+            WHERE id_usuario = %s;
         """, (id_usuario,))
 
         preferences = cursor.fetchone()
+
+        cursor.close()
         connection.close()
 
         if preferences:
-            return dict(preferences)
+            return preferences
 
         return {
             "tema_visual": "light",
@@ -169,8 +176,8 @@ class UserModel:
         try:
             cursor.execute("""
                 UPDATE preferencias
-                SET tema_visual = ?
-                WHERE id_usuario = ?;
+                SET tema_visual = %s
+                WHERE id_usuario = %s;
             """, (theme, id_usuario))
 
             connection.commit()
@@ -189,6 +196,7 @@ class UserModel:
             }
 
         finally:
+            cursor.close()
             connection.close()
 
     @staticmethod
@@ -210,9 +218,11 @@ class UserModel:
         """)
 
         users = cursor.fetchall()
+
+        cursor.close()
         connection.close()
 
-        return [dict(user) for user in users]
+        return users
 
     @staticmethod
     def restrict_user(id_usuario):
@@ -223,7 +233,7 @@ class UserModel:
             cursor.execute("""
                 UPDATE usuarios
                 SET estado = 'restringida'
-                WHERE id_usuario = ? AND rol != 'superuser';
+                WHERE id_usuario = %s AND rol != 'superuser';
             """, (id_usuario,))
 
             connection.commit()
@@ -242,6 +252,7 @@ class UserModel:
             }
 
         finally:
+            cursor.close()
             connection.close()
 
     @staticmethod
@@ -253,7 +264,7 @@ class UserModel:
             cursor.execute("""
                 UPDATE usuarios
                 SET estado = 'activa'
-                WHERE id_usuario = ? AND rol != 'superuser';
+                WHERE id_usuario = %s AND rol != 'superuser';
             """, (id_usuario,))
 
             connection.commit()
@@ -272,6 +283,7 @@ class UserModel:
             }
 
         finally:
+            cursor.close()
             connection.close()
 
     @staticmethod
@@ -282,7 +294,7 @@ class UserModel:
         try:
             cursor.execute("""
                 DELETE FROM usuarios
-                WHERE id_usuario = ? AND rol != 'superuser';
+                WHERE id_usuario = %s AND rol != 'superuser';
             """, (id_usuario,))
 
             connection.commit()
@@ -301,6 +313,7 @@ class UserModel:
             }
 
         finally:
+            cursor.close()
             connection.close()
 
     @staticmethod
@@ -311,7 +324,7 @@ class UserModel:
         try:
             cursor.execute("""
                 DELETE FROM usuarios
-                WHERE id_usuario = ? AND rol != 'superuser';
+                WHERE id_usuario = %s AND rol != 'superuser';
             """, (id_usuario,))
 
             connection.commit()
@@ -330,4 +343,5 @@ class UserModel:
             }
 
         finally:
+            cursor.close()
             connection.close()

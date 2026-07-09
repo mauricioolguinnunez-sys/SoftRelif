@@ -1,15 +1,18 @@
-import sqlite3
 import os
+import pymysql
 
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATABASE_PATH = os.path.join(BASE_DIR, "softrelief.db")
+DB_CONFIG = {
+    "host": os.getenv("SOFTRELIF_DB_HOST", "127.0.0.1"),
+    "port": int(os.getenv("SOFTRELIF_DB_PORT", "3307")),
+    "user": os.getenv("SOFTRELIF_DB_USER", "softrelif_app"),
+    "password": os.getenv("SOFTRELIF_DB_PASSWORD", "SoftRelif_1234!"),
+    "database": os.getenv("SOFTRELIF_DB_NAME", "softrelif_db"),
+    "charset": "utf8mb4",
+    "cursorclass": pymysql.cursors.DictCursor,
+    "autocommit": False
+}
 
 
 def get_connection():
-    """
-    Crea y devuelve una conexión a la base de datos SQLite.
-    """
-    connection = sqlite3.connect(DATABASE_PATH)
-    connection.row_factory = sqlite3.Row
-    return connection
+    return pymysql.connect(**DB_CONFIG)
