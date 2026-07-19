@@ -2,7 +2,7 @@ from .buttons import PrimaryButton, SecondaryButton, DangerButton, SidebarButton
 from .cards import SoftCard, FormCard, StatCard
 from .inputs import SoftEntry, PasswordEntry, SoftTextbox
 from .labels import TitleLabel, SubtitleLabel, BodyLabel, SmallLabel, ErrorLabel
-from .layout import BaseView, SidebarLayout
+from .layout import BaseFrame, BaseView, SidebarLayout
 from .checkin_components import MetricsCard, MoodCard, PhraseCard, RecommendationPanel
 from .settings_components import (
     ThemeOptionCard,
@@ -17,23 +17,30 @@ __all__ = [
     "SecondaryButton",
     "DangerButton",
     "SidebarButton",
+
     "SoftCard",
     "FormCard",
     "StatCard",
+
     "SoftEntry",
     "PasswordEntry",
+    "SoftTextbox",
+
     "TitleLabel",
     "SubtitleLabel",
     "BodyLabel",
     "SmallLabel",
     "ErrorLabel",
+
+    "BaseFrame",
     "BaseView",
     "SidebarLayout",
-    "SoftTextbox",
+
     "MetricsCard",
     "MoodCard",
     "PhraseCard",
     "RecommendationPanel",
+
     "ThemeOptionCard",
     "PersistenceCard",
     "AccountSummaryCard",
