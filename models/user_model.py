@@ -182,46 +182,92 @@ class UserModel:
             password_hash = UserModel.make_password_hash(password)
 
             cursor.execute("""
-                INSERT INTO usuarios (
+                SELECT id_rol
+                FROM rol
+                WHERE nombre = %s
+                LIMIT 1;
+            """, (rol,))
+
+            rol_row = cursor.fetchone()
+            if not rol_row:
+                rol = "usuario"
+                cursor.execute("""
+                    SELECT id_rol
+                    FROM rol
+                    WHERE nombre = %s
+                    LIMIT 1;
+                """, (rol,))
+                rol_row = cursor.fetchone()
+
+            if not rol_row:
+                raise ValueError("No existe el rol solicitado en la base de datos.")
+
+            cursor.execute("""
+                SELECT id_estado
+                FROM estado_cuenta
+                WHERE nombre = 'activa'
+                LIMIT 1;
+            """)
+            estado_row = cursor.fetchone()
+            if not estado_row:
+                raise ValueError("No existe el estado activa en la base de datos.")
+
+            cursor.execute("""
+                INSERT INTO tema (nombre, descripcion)
+                VALUES (%s, %s)
+                ON DUPLICATE KEY UPDATE nombre = nombre;
+            """, ("light", "Tema claro predeterminado."))
+
+            cursor.execute("""
+                SELECT id_tema
+                FROM tema
+                WHERE nombre = 'light'
+                LIMIT 1;
+            """)
+            tema_row = cursor.fetchone()
+            if not tema_row:
+                raise ValueError("No se pudo crear o localizar el tema light.")
+
+            cursor.execute("""
+                INSERT INTO preferencia_visual (
+                    id_tema,
+                    tamano_fuente,
+                    modo_visualizacion
+                )
+                VALUES (%s, %s, %s);
+            """, (
+                tema_row["id_tema"],
+                "normal",
+                "estandar"
+            ))
+
+            id_preferencia = cursor.lastrowid
+
+            cursor.execute("""
+                INSERT INTO usuario (
                     nombre,
-                    usuario,
                     correo,
-                    password_hash,
+                    contrasena,
                     fecha_registro,
-                    rol,
-                    estado
+                    id_rol,
+                    id_estado,
+                    id_preferencia
                 )
                 VALUES (%s, %s, %s, %s, %s, %s, %s);
             """, (
                 nombre,
-                usuario,
                 correo,
                 password_hash,
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                rol,
-                "activa"
+                datetime.now().strftime("%Y-%m-%d"),
+                rol_row["id_rol"],
+                estado_row["id_estado"],
+                id_preferencia
             ))
 
             id_usuario = cursor.lastrowid
-
-            cursor.execute("""
-                INSERT INTO preferencias (
-                    id_usuario,
-                    tema_visual,
-                    sonido_default,
-                    volumen,
-                    animaciones
-                )
-                VALUES (%s, %s, %s, %s, %s);
-            """, (
-                id_usuario,
-                "light",
-                "lluvia",
-                50,
-                1
-            ))
-
             connection.commit()
+
+            UserModel.ensure_mongo_link(id_usuario)
 
             return {
                 "success": True,
@@ -247,6 +293,11 @@ class UserModel:
 
     @staticmethod
     def get_user_by_username_or_email(identifier):
+        identifier = str(identifier or "").strip()
+
+        if not identifier:
+            return None
+
         connection = get_connection()
         cursor = connection.cursor(dictionary=True)
 
@@ -255,24 +306,36 @@ class UserModel:
                 SELECT
                     u.id_usuario,
                     u.nombre,
-                    u.usuario,
                     u.correo,
-                    u.password_hash,
+                    u.contrasena AS password_hash,
                     u.fecha_registro,
-                    u.rol,
-                    u.estado,
-                    p.tema_visual,
-                    p.sonido_default,
-                    p.volumen,
-                    p.animaciones
-                FROM usuarios u
-                LEFT JOIN preferencias p
-                    ON u.id_usuario = p.id_usuario
-                WHERE u.usuario = %s OR u.correo = %s
+                    r.nombre AS rol,
+                    ec.nombre AS estado,
+                    pv.id_preferencia,
+                    t.nombre AS tema_visual,
+                    pv.tamano_fuente,
+                    pv.modo_visualizacion
+                FROM usuario u
+                LEFT JOIN rol r
+                    ON u.id_rol = r.id_rol
+                LEFT JOIN estado_cuenta ec
+                    ON u.id_estado = ec.id_estado
+                LEFT JOIN preferencia_visual pv
+                    ON u.id_preferencia = pv.id_preferencia
+                LEFT JOIN tema t
+                    ON pv.id_tema = t.id_tema
+                WHERE LOWER(TRIM(u.correo)) = LOWER(TRIM(%s))
+                   OR LOWER(TRIM(u.nombre)) = LOWER(TRIM(%s))
                 LIMIT 1;
             """, (identifier, identifier))
 
-            return cursor.fetchone()
+            user = cursor.fetchone()
+
+            if user:
+                user["usuario"] = user.get("correo")
+                user["tema_visual"] = user.get("tema_visual") or "light"
+
+            return user
 
         finally:
             cursor.close()
@@ -298,18 +361,283 @@ class UserModel:
                 SELECT
                     u.id_usuario,
                     u.nombre,
-                    u.usuario,
                     u.correo,
                     u.fecha_registro,
-                    u.rol,
-                    u.estado,
-                    p.tema_visual,
-                    p.sonido_default,
-                    p.volumen,
-                    p.animaciones
-                FROM usuarios u
-                LEFT JOIN preferencias p
-                    ON u.id_usuario = p.id_usuario
+                    r.nombre AS rol,
+                    ec.nombre AS estado,
+                    t.nombre AS tema_visual,
+                    pv.tamano_fuente,
+                    pv.modo_visualizacion
+                FROM usuario u
+                LEFT JOIN rol r
+                    ON u.id_rol = r.id_rol
+                LEFT JOIN estado_cuenta ec
+                    ON u.id_estado = ec.id_estado
+                LEFT JOIN preferencia_visual pv
+                    ON u.id_preferencia = pv.id_preferencia
+                LEFT JOIN tema t
+                    ON pv.id_tema = t.id_tema
+                WHERE u.id_usuario = %s
+                LIMIT 1;
+            """, (id_usuario,))
+
+            user = cursor.fetchone()
+
+            if user:
+                user["usuario"] = user.get("correo")
+                user["tema_visual"] = user.get("tema_visual") or "light"
+
+            return user
+
+        finally:
+            cursor.close()
+            connection.close()
+
+    @staticmethod
+    def ensure_mongo_link(id_usuario):
+        """
+        Asegura que un usuario tenga registro en usuario_mongo.
+        Esto no crea datos de bienestar; solo crea la conexión relacional con Mongo.
+        """
+
+        if not id_usuario:
+            return
+
+        conexion = get_connection()
+        cursor = conexion.cursor(dictionary=True)
+
+        try:
+            cursor.execute("""
+                SELECT id_conexion
+                FROM usuario_mongo
+                WHERE id_usuario = %s
+                LIMIT 1;
+            """, (id_usuario,))
+
+            if cursor.fetchone():
+                return
+
+            cursor.execute("""
+                INSERT INTO usuario_mongo (
+                    id_usuario,
+                    mongo_id,
+                    coleccion,
+                    descripcion,
+                    fecha_vinculacion
+                )
+                VALUES (%s, %s, %s, %s, NOW());
+            """, (
+                id_usuario,
+                f"mongo_usuario_{id_usuario}",
+                "usuarios_bienestar",
+                "Identificador de referencia para datos no relacionales del usuario."
+            ))
+
+            conexion.commit()
+
+        finally:
+            cursor.close()
+            conexion.close()
+
+    @staticmethod
+    def ensure_all_mongo_links():
+        """
+        Asegura conexión Mongo para todos los usuarios existentes.
+        """
+
+        conexion = get_connection()
+        cursor = conexion.cursor(dictionary=True)
+
+        try:
+            cursor.execute("""
+                SELECT id_usuario
+                FROM usuario
+                WHERE id_usuario NOT IN (
+                    SELECT id_usuario FROM usuario_mongo
+                );
+            """)
+
+            usuarios_sin_mongo = cursor.fetchall()
+
+        finally:
+            cursor.close()
+            conexion.close()
+
+        for usuario in usuarios_sin_mongo:
+            UserModel.ensure_mongo_link(usuario["id_usuario"])
+
+    @staticmethod
+    def get_all_users():
+        """
+        Consulta todos los usuarios existentes para SuperuserView.
+
+        Usa LEFT JOIN para no ocultar usuarios aunque falte alguna relación secundaria.
+        """
+
+        UserModel.ensure_all_mongo_links()
+
+        conexion = get_connection()
+        cursor = conexion.cursor(dictionary=True)
+
+        try:
+            cursor.execute("""
+                SELECT
+                    u.id_usuario,
+                    u.nombre,
+                    u.correo,
+                    u.correo AS usuario,
+                    u.fecha_registro,
+
+                    COALESCE(r.nombre, 'sin_rol') AS rol,
+                    COALESCE(ec.nombre, 'sin_estado') AS estado,
+
+                    pv.id_preferencia,
+                    COALESCE(t.nombre, 'light') AS tema_visual,
+                    COALESCE(pv.tamano_fuente, 'normal') AS tamano_fuente,
+                    COALESCE(pv.modo_visualizacion, 'estandar') AS modo_visualizacion,
+
+                    um.mongo_id,
+                    um.coleccion
+                FROM usuario u
+                LEFT JOIN rol r
+                    ON u.id_rol = r.id_rol
+                LEFT JOIN estado_cuenta ec
+                    ON u.id_estado = ec.id_estado
+                LEFT JOIN preferencia_visual pv
+                    ON u.id_preferencia = pv.id_preferencia
+                LEFT JOIN tema t
+                    ON pv.id_tema = t.id_tema
+                LEFT JOIN usuario_mongo um
+                    ON u.id_usuario = um.id_usuario
+                ORDER BY u.id_usuario DESC;
+            """)
+
+            return cursor.fetchall()
+
+        finally:
+            cursor.close()
+            conexion.close()
+
+    @staticmethod
+    def get_common_users_for_specialist(id_especialista):
+        """
+        Consulta solo usuarios comunes para SpecialistView.
+
+        El especialista ve usuarios con rol 'usuario'.
+        También muestra cuántas acciones ha registrado ese especialista sobre cada usuario.
+        """
+
+        UserModel.ensure_all_mongo_links()
+
+        conexion = get_connection()
+        cursor = conexion.cursor(dictionary=True)
+
+        try:
+            cursor.execute("""
+                SELECT
+                    u.id_usuario,
+                    u.nombre,
+                    u.correo,
+                    u.correo AS usuario,
+                    u.fecha_registro,
+
+                    COALESCE(r.nombre, 'sin_rol') AS rol,
+                    COALESCE(ec.nombre, 'sin_estado') AS estado,
+
+                    pv.id_preferencia,
+                    COALESCE(t.nombre, 'light') AS tema_visual,
+                    COALESCE(pv.tamano_fuente, 'normal') AS tamano_fuente,
+                    COALESCE(pv.modo_visualizacion, 'estandar') AS modo_visualizacion,
+
+                    um.mongo_id,
+                    um.coleccion,
+
+                    COUNT(b.id_bitacora) AS acciones_especialista,
+
+                    MAX(
+                        CASE
+                            WHEN b.accion = 'asignar_recomendacion'
+                            THEN b.fecha_evento
+                            ELSE NULL
+                        END
+                    ) AS ultima_recomendacion
+                FROM usuario u
+                LEFT JOIN rol r
+                    ON u.id_rol = r.id_rol
+                LEFT JOIN estado_cuenta ec
+                    ON u.id_estado = ec.id_estado
+                LEFT JOIN preferencia_visual pv
+                    ON u.id_preferencia = pv.id_preferencia
+                LEFT JOIN tema t
+                    ON pv.id_tema = t.id_tema
+                LEFT JOIN usuario_mongo um
+                    ON u.id_usuario = um.id_usuario
+                LEFT JOIN bitacora_cuenta b
+                    ON b.id_usuario = u.id_usuario
+                    AND b.id_admin = %s
+                    AND b.accion IN ('asignar_recomendacion', 'cargar_recurso')
+                WHERE r.nombre = 'usuario'
+                GROUP BY
+                    u.id_usuario,
+                    u.nombre,
+                    u.correo,
+                    u.fecha_registro,
+                    r.nombre,
+                    ec.nombre,
+                    pv.id_preferencia,
+                    t.nombre,
+                    pv.tamano_fuente,
+                    pv.modo_visualizacion,
+                    um.mongo_id,
+                    um.coleccion
+                ORDER BY u.id_usuario DESC;
+            """, (id_especialista,))
+
+            return cursor.fetchall()
+
+        finally:
+            cursor.close()
+            conexion.close()
+
+    @staticmethod
+    def get_user_detail(id_usuario):
+        """
+        Obtiene un usuario por ID usando el modelo relacional corregido.
+        """
+
+        conexion = get_connection()
+        cursor = conexion.cursor(dictionary=True)
+
+        try:
+            cursor.execute("""
+                SELECT
+                    u.id_usuario,
+                    u.nombre,
+                    u.correo,
+                    u.correo AS usuario,
+                    u.fecha_registro,
+
+                    COALESCE(r.nombre, 'sin_rol') AS rol,
+                    COALESCE(ec.nombre, 'sin_estado') AS estado,
+
+                    pv.id_preferencia,
+                    COALESCE(t.nombre, 'light') AS tema_visual,
+                    COALESCE(pv.tamano_fuente, 'normal') AS tamano_fuente,
+                    COALESCE(pv.modo_visualizacion, 'estandar') AS modo_visualizacion,
+
+                    um.mongo_id,
+                    um.coleccion
+                FROM usuario u
+                LEFT JOIN rol r
+                    ON u.id_rol = r.id_rol
+                LEFT JOIN estado_cuenta ec
+                    ON u.id_estado = ec.id_estado
+                LEFT JOIN preferencia_visual pv
+                    ON u.id_preferencia = pv.id_preferencia
+                LEFT JOIN tema t
+                    ON pv.id_tema = t.id_tema
+                LEFT JOIN usuario_mongo um
+                    ON u.id_usuario = um.id_usuario
                 WHERE u.id_usuario = %s
                 LIMIT 1;
             """, (id_usuario,))
@@ -318,58 +646,73 @@ class UserModel:
 
         finally:
             cursor.close()
-            connection.close()
+            conexion.close()
 
     @staticmethod
-    def get_all_users():
-        connection = get_connection()
-        cursor = connection.cursor(dictionary=True)
+    def get_history_for_specialist(id_usuario, id_especialista):
+        """
+        Trayectoria del usuario relacionada con el especialista actual.
+
+        Solo muestra acciones hechas por ese especialista:
+        - asignar_recomendacion
+        - cargar_recurso
+        """
+
+        conexion = get_connection()
+        cursor = conexion.cursor(dictionary=True)
 
         try:
             cursor.execute("""
                 SELECT
-                    u.id_usuario,
-                    u.nombre,
-                    u.usuario,
-                    u.correo,
-                    u.fecha_registro,
-                    u.rol,
-                    u.estado,
-                    p.tema_visual
-                FROM usuarios u
-                LEFT JOIN preferencias p
-                    ON u.id_usuario = p.id_usuario
-                ORDER BY u.id_usuario DESC;
-            """)
+                    b.id_bitacora,
+                    b.accion,
+                    b.descripcion,
+                    b.fecha_evento,
+                    actor.nombre AS actor_nombre,
+                    actor.correo AS actor_correo
+                FROM bitacora_cuenta b
+                LEFT JOIN usuario actor
+                    ON b.id_admin = actor.id_usuario
+                WHERE b.id_usuario = %s
+                  AND b.id_admin = %s
+                  AND b.accion IN ('asignar_recomendacion', 'cargar_recurso')
+                ORDER BY b.fecha_evento DESC
+                LIMIT 50;
+            """, (
+                id_usuario,
+                id_especialista
+            ))
 
             return cursor.fetchall()
 
         finally:
             cursor.close()
-            connection.close()
+            conexion.close()
 
     @staticmethod
-    def get_users():
-        return UserModel.get_all_users()
+    def get_latest_recommendation_for_user(id_usuario):
+        """
+        Última recomendación asignada a un usuario.
+        Se usa en HomeView del usuario normal.
+        """
 
-    @staticmethod
-    def get_preferences(id_usuario):
-        id_usuario = UserModel.normalize_user_id(id_usuario)
-
-        connection = get_connection()
-        cursor = connection.cursor(dictionary=True)
+        conexion = get_connection()
+        cursor = conexion.cursor(dictionary=True)
 
         try:
             cursor.execute("""
                 SELECT
-                    id_preferencia,
-                    id_usuario,
-                    tema_visual,
-                    sonido_default,
-                    volumen,
-                    animaciones
-                FROM preferencias
-                WHERE id_usuario = %s
+                    b.id_bitacora,
+                    b.descripcion,
+                    b.fecha_evento,
+                    especialista.nombre AS especialista_nombre,
+                    especialista.correo AS especialista_correo
+                FROM bitacora_cuenta b
+                LEFT JOIN usuario especialista
+                    ON b.id_admin = especialista.id_usuario
+                WHERE b.id_usuario = %s
+                  AND b.accion = 'asignar_recomendacion'
+                ORDER BY b.fecha_evento DESC
                 LIMIT 1;
             """, (id_usuario,))
 
@@ -377,7 +720,369 @@ class UserModel:
 
         finally:
             cursor.close()
-            connection.close()
+            conexion.close()
+
+    @staticmethod
+    def get_users():
+        return UserModel.get_all_users()
+
+    @staticmethod
+    def table_has_column(table_name, column_name):
+        conexion = get_connection()
+        cursor = conexion.cursor(dictionary=True)
+
+        try:
+            cursor.execute("""
+                SELECT COUNT(*) AS total
+                FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                  AND table_name = %s
+                  AND column_name = %s;
+            """, (table_name, column_name))
+
+            row = cursor.fetchone()
+            return row["total"] > 0
+
+        finally:
+            cursor.close()
+            conexion.close()
+
+    @staticmethod
+    def get_account_settings(user_or_id):
+        id_usuario = UserModel.normalize_user_id(user_or_id)
+
+        username_supported = UserModel.table_has_column("usuario", "usuario")
+
+        if username_supported:
+            username_select = "u.usuario AS nombre_usuario"
+        else:
+            username_select = "SUBSTRING_INDEX(u.correo, '@', 1) AS nombre_usuario"
+
+        conexion = get_connection()
+        cursor = conexion.cursor(dictionary=True)
+
+        try:
+            cursor.execute(f"""
+                SELECT
+                    u.id_usuario,
+                    u.nombre,
+                    {username_select},
+                    u.correo,
+                    u.fecha_registro,
+                    r.nombre AS rol,
+                    ec.nombre AS estado,
+                    t.nombre AS tema_visual,
+                    pv.tamano_fuente,
+                    pv.modo_visualizacion
+                FROM usuario u
+                LEFT JOIN rol r
+                    ON u.id_rol = r.id_rol
+                LEFT JOIN estado_cuenta ec
+                    ON u.id_estado = ec.id_estado
+                LEFT JOIN preferencia_visual pv
+                    ON u.id_preferencia = pv.id_preferencia
+                LEFT JOIN tema t
+                    ON pv.id_tema = t.id_tema
+                WHERE u.id_usuario = %s
+                LIMIT 1;
+            """, (id_usuario,))
+
+            user = cursor.fetchone()
+
+            if not user:
+                return {
+                    "success": False,
+                    "message": "Usuario no encontrado.",
+                    "user": None,
+                    "username_supported": username_supported
+                }
+
+            user["username_supported"] = username_supported
+
+            return {
+                "success": True,
+                "message": "Datos cargados correctamente.",
+                "user": user,
+                "username_supported": username_supported
+            }
+
+        finally:
+            cursor.close()
+            conexion.close()
+
+    @staticmethod
+    def update_account_settings(user_or_id, nombre, nombre_usuario, correo):
+        """
+        Actualiza datos básicos de cuenta.
+        Usa solamente UPDATE.
+        No crea tablas.
+        No modifica estructura SQL.
+
+        Si existe columna usuario.usuario, también actualiza nombre_usuario.
+        Si no existe, ignora nombre_usuario para respetar el MR actual.
+        """
+
+        id_usuario = UserModel.normalize_user_id(user_or_id)
+
+        nombre = str(nombre).strip()
+        nombre_usuario = str(nombre_usuario).strip()
+        correo = str(correo).strip().lower()
+
+        if not nombre:
+            return {
+                "success": False,
+                "message": "El nombre no puede estar vacío."
+            }
+
+        if len(nombre) < 3:
+            return {
+                "success": False,
+                "message": "El nombre debe tener al menos 3 caracteres."
+            }
+
+        if not correo or "@" not in correo or "." not in correo:
+            return {
+                "success": False,
+                "message": "Ingresa un correo válido."
+            }
+
+        username_supported = UserModel.table_has_column("usuario", "usuario")
+
+        conexion = get_connection()
+        cursor = conexion.cursor(dictionary=True)
+
+        try:
+            cursor.execute("""
+                SELECT id_usuario
+                FROM usuario
+                WHERE LOWER(correo) = %s
+                  AND id_usuario <> %s
+                LIMIT 1;
+            """, (correo, id_usuario))
+
+            if cursor.fetchone():
+                return {
+                    "success": False,
+                    "message": "Ese correo ya está registrado por otra cuenta."
+                }
+
+            if username_supported:
+                if not nombre_usuario:
+                    return {
+                        "success": False,
+                        "message": "El nombre de usuario no puede estar vacío."
+                    }
+
+                if len(nombre_usuario) < 3:
+                    return {
+                        "success": False,
+                        "message": "El nombre de usuario debe tener al menos 3 caracteres."
+                    }
+
+                cursor.execute("""
+                    SELECT id_usuario
+                    FROM usuario
+                    WHERE LOWER(usuario) = %s
+                      AND id_usuario <> %s
+                    LIMIT 1;
+                """, (nombre_usuario.lower(), id_usuario))
+
+                if cursor.fetchone():
+                    return {
+                        "success": False,
+                        "message": "Ese nombre de usuario ya está registrado."
+                    }
+
+                cursor.execute("""
+                    UPDATE usuario
+                    SET
+                        nombre = %s,
+                        usuario = %s,
+                        correo = %s
+                    WHERE id_usuario = %s;
+                """, (
+                    nombre,
+                    nombre_usuario,
+                    correo,
+                    id_usuario
+                ))
+
+            else:
+                cursor.execute("""
+                    UPDATE usuario
+                    SET
+                        nombre = %s,
+                        correo = %s
+                    WHERE id_usuario = %s;
+                """, (
+                    nombre,
+                    correo,
+                    id_usuario
+                ))
+
+            conexion.commit()
+
+            user_result = UserModel.get_account_settings(id_usuario)
+
+            return {
+                "success": True,
+                "message": "Datos de cuenta actualizados correctamente.",
+                "user": user_result.get("user")
+            }
+
+        except Exception as error:
+            conexion.rollback()
+
+            return {
+                "success": False,
+                "message": f"No se pudieron actualizar los datos: {error}"
+            }
+
+        finally:
+            cursor.close()
+            conexion.close()
+
+    @staticmethod
+    def update_password(user_or_id, current_password, new_password, confirm_password):
+        id_usuario = UserModel.normalize_user_id(user_or_id)
+
+        current_password = str(current_password).strip()
+        new_password = str(new_password).strip()
+        confirm_password = str(confirm_password).strip()
+
+        if not current_password or not new_password or not confirm_password:
+            return {
+                "success": False,
+                "message": "Completa todos los campos de contraseña."
+            }
+
+        if len(new_password) < 4:
+            return {
+                "success": False,
+                "message": "La nueva contraseña debe tener al menos 4 caracteres."
+            }
+
+        if new_password != confirm_password:
+            return {
+                "success": False,
+                "message": "Las nuevas contraseñas no coinciden."
+            }
+
+        conexion = get_connection()
+        cursor = conexion.cursor(dictionary=True)
+
+        try:
+            cursor.execute("""
+                SELECT contrasena
+                FROM usuario
+                WHERE id_usuario = %s
+                LIMIT 1;
+            """, (id_usuario,))
+
+            user = cursor.fetchone()
+
+            if not user:
+                return {
+                    "success": False,
+                    "message": "Usuario no encontrado."
+                }
+
+            stored_hash = user.get("contrasena")
+
+            if not UserModel.verify_password(current_password, stored_hash):
+                return {
+                    "success": False,
+                    "message": "La contraseña actual es incorrecta."
+                }
+
+            new_hash = UserModel.make_password_hash(new_password)
+
+            cursor.execute("""
+                UPDATE usuario
+                SET contrasena = %s
+                WHERE id_usuario = %s;
+            """, (
+                new_hash,
+                id_usuario
+            ))
+
+            conexion.commit()
+
+            return {
+                "success": True,
+                "message": "Contraseña actualizada correctamente."
+            }
+
+        except Exception as error:
+            conexion.rollback()
+
+            return {
+                "success": False,
+                "message": f"No se pudo actualizar la contraseña: {error}"
+            }
+
+        finally:
+            cursor.close()
+            conexion.close()
+
+    @staticmethod
+    def update_theme(user_or_id, tema_visual):
+        id_usuario = UserModel.normalize_user_id(user_or_id)
+
+        if tema_visual not in ["light", "dark"]:
+            return {
+                "success": False,
+                "message": "Tema visual no válido."
+            }
+
+        conexion = get_connection()
+        cursor = conexion.cursor(dictionary=True)
+
+        try:
+            cursor.execute("""
+                SELECT id_tema
+                FROM tema
+                WHERE nombre = %s
+                LIMIT 1;
+            """, (tema_visual,))
+
+            tema = cursor.fetchone()
+
+            if not tema:
+                return {
+                    "success": False,
+                    "message": "El tema seleccionado no existe en la base de datos."
+                }
+
+            cursor.execute("""
+                UPDATE preferencia_visual pv
+                INNER JOIN usuario u
+                    ON pv.id_preferencia = u.id_preferencia
+                SET pv.id_tema = %s
+                WHERE u.id_usuario = %s;
+            """, (
+                tema["id_tema"],
+                id_usuario
+            ))
+
+            conexion.commit()
+
+            return {
+                "success": True,
+                "message": "Tema actualizado correctamente."
+            }
+
+        except Exception as error:
+            conexion.rollback()
+
+            return {
+                "success": False,
+                "message": f"No se pudo actualizar el tema: {error}"
+            }
+
+        finally:
+            cursor.close()
+            conexion.close()
 
     # =====================================================
     # EXISTS
@@ -391,8 +1096,8 @@ class UserModel:
         try:
             cursor.execute("""
                 SELECT id_usuario
-                FROM usuarios
-                WHERE usuario = %s
+                FROM usuario
+                WHERE correo = %s
                 LIMIT 1;
             """, (usuario,))
 
@@ -410,7 +1115,7 @@ class UserModel:
         try:
             cursor.execute("""
                 SELECT id_usuario
-                FROM usuarios
+                FROM usuario
                 WHERE correo = %s
                 LIMIT 1;
             """, (correo,))
@@ -434,39 +1139,6 @@ class UserModel:
     # =====================================================
 
     @staticmethod
-    def update_theme(id_usuario, tema_visual):
-        id_usuario = UserModel.normalize_user_id(id_usuario)
-
-        connection = get_connection()
-        cursor = connection.cursor(dictionary=True)
-
-        try:
-            cursor.execute("""
-                UPDATE preferencias
-                SET tema_visual = %s
-                WHERE id_usuario = %s;
-            """, (tema_visual, id_usuario))
-
-            connection.commit()
-
-            return {
-                "success": True,
-                "message": "Tema actualizado correctamente."
-            }
-
-        except Exception as error:
-            connection.rollback()
-
-            return {
-                "success": False,
-                "message": f"No se pudo actualizar el tema: {error}"
-            }
-
-        finally:
-            cursor.close()
-            connection.close()
-
-    @staticmethod
     def update_status(id_usuario, estado):
         id_usuario = UserModel.normalize_user_id(id_usuario)
 
@@ -475,8 +1147,13 @@ class UserModel:
 
         try:
             cursor.execute("""
-                UPDATE usuarios
-                SET estado = %s
+                UPDATE usuario
+                SET id_estado = (
+                    SELECT id_estado
+                    FROM estado_cuenta
+                    WHERE nombre = %s
+                    LIMIT 1
+                )
                 WHERE id_usuario = %s;
             """, (estado, id_usuario))
 

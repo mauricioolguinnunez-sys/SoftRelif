@@ -202,22 +202,10 @@ class HomeView(ctk.CTkFrame):
 
         if role == "especialista":
             return [
-                ("Panel especialista", "✚", self.show_specialist_panel),
-                ("Trayectoria", "◔", lambda: self.show_specialist_section(
-                    "Trayectoria",
-                    "Consulta la evolución, historial y actividad registrada de usuarios asignados."
-                )),
-                ("Asignar recomendación", "➕", lambda: self.show_specialist_section(
-                    "Asignar recomendación",
-                    "Registra recomendaciones personalizadas para usuarios en seguimiento."
-                )),
-                ("Marcar seguimiento", "✓", lambda: self.show_specialist_section(
-                    "Marcar seguimiento",
-                    "Indica que un caso fue revisado o atendido por el especialista."
-                )),
-                ("Cargar recurso", "⬆", lambda: self.show_specialist_section(
-                    "Cargar recurso",
-                    "Agrega material de apoyo, enlaces o recursos para bienestar emocional."
+                ("Panel especialista", "✚", lambda: self.open_view(
+                    "Panel especialista",
+                    "views.specialist_view",
+                    "SpecialistView"
                 )),
                 ("Configuración", "⚙", lambda: self.open_view(
                     "Configuración",
@@ -427,7 +415,11 @@ class HomeView(ctk.CTkFrame):
             return
 
         if role == "especialista":
-            self.show_specialist_panel()
+            self.open_view(
+                "Panel especialista",
+                "views.specialist_view",
+                "SpecialistView"
+            )
             return
 
         self.show_home_content()
@@ -514,6 +506,7 @@ class HomeView(ctk.CTkFrame):
         self.home_actions()
         self.home_phrase()
         self.home_activity()
+        self.home_recomendacion_especialista()
 
     def last_checkin(self):
         if self.app and getattr(self.app, "last_checkin", None):
@@ -523,6 +516,84 @@ class HomeView(ctk.CTkFrame):
             return self.current_user["ultimo_checkin"]
 
         return {}
+
+    def obtener_recomendacion_especialista(self):
+        if not self.current_user:
+            return None
+
+        id_usuario = self.current_user.get("id_usuario")
+
+        if not id_usuario:
+            return None
+
+        try:
+            from models.user_model import UserModel
+            return UserModel.get_latest_recommendation_for_user(id_usuario)
+
+        except Exception:
+            return None
+
+    def limpiar_texto_recomendacion(self, descripcion):
+        if not descripcion:
+            return "No hay detalle disponible."
+
+        texto = str(descripcion)
+
+        texto = texto.replace("RECOMENDACION", "")
+        texto = texto.replace("Título:", "Título:")
+        texto = texto.replace("Detalle:", "\nDetalle:")
+        texto = texto.replace("Mongo ID:", "\nReferencia Mongo:")
+
+        return texto.strip()
+
+    def home_recomendacion_especialista(self):
+        recomendacion = self.obtener_recomendacion_especialista()
+
+        card = self.card(self.content)
+        card.grid(
+            row=4,
+            column=0,
+            columnspan=3,
+            sticky="ew",
+            padx=30,
+            pady=(0, 28)
+        )
+
+        TitleLabel(
+            card,
+            "Recomendación del especialista",
+            size=22,
+            text_color=self.c("text", "#30384F")
+        ).pack(anchor="w", padx=24, pady=(22, 8))
+
+        if not recomendacion:
+            BodyLabel(
+                card,
+                "Aún no tienes recomendaciones asignadas por un especialista.",
+                size=14,
+                text_color=self.c("text_soft", "#7E86A3"),
+                wraplength=820
+            ).pack(anchor="w", padx=24, pady=(0, 22))
+            return
+
+        especialista = recomendacion.get("especialista_nombre") or "Especialista"
+        fecha = recomendacion.get("fecha_evento", "-")
+        detalle = self.limpiar_texto_recomendacion(recomendacion.get("descripcion", ""))
+
+        SmallLabel(
+            card,
+            f"Asignada por: {especialista} · {fecha}",
+            size=12,
+            text_color=self.c("text_soft", "#7E86A3")
+        ).pack(anchor="w", padx=24, pady=(0, 8))
+
+        BodyLabel(
+            card,
+            detalle,
+            size=14,
+            text_color=self.c("text", "#30384F"),
+            wraplength=820
+        ).pack(anchor="w", padx=24, pady=(0, 22))
 
     def home_header(self):
         card = self.card(self.content)

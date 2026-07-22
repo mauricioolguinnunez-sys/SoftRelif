@@ -5,7 +5,7 @@ class UserController:
 
     @staticmethod
     def get_all_users(current_user):
-        if current_user["rol"] != "superuser":
+        if str(current_user.get("rol", "")).lower() != "superuser":
             return {
                 "success": False,
                 "message": "No tienes permisos para ver usuarios.",
@@ -20,7 +20,7 @@ class UserController:
 
     @staticmethod
     def restrict_user(current_user, id_usuario):
-        if current_user["rol"] != "superuser":
+        if str(current_user.get("rol", "")).lower() != "superuser":
             return {
                 "success": False,
                 "message": "No tienes permisos para restringir usuarios."
@@ -30,7 +30,7 @@ class UserController:
 
     @staticmethod
     def activate_user(current_user, id_usuario):
-        if current_user["rol"] != "superuser":
+        if str(current_user.get("rol", "")).lower() != "superuser":
             return {
                 "success": False,
                 "message": "No tienes permisos para activar usuarios."
@@ -40,7 +40,7 @@ class UserController:
 
     @staticmethod
     def delete_user(current_user, id_usuario):
-        if current_user["rol"] != "superuser":
+        if str(current_user.get("rol", "")).lower() != "superuser":
             return {
                 "success": False,
                 "message": "No tienes permisos para eliminar usuarios."
@@ -50,7 +50,7 @@ class UserController:
 
     @staticmethod
     def delete_own_account(current_user):
-        if current_user["rol"] == "superuser":
+        if str(current_user.get("rol", "")).lower() == "superuser":
             return {
                 "success": False,
                 "message": "La cuenta superuser no se puede eliminar."
@@ -66,4 +66,45 @@ class UserController:
                 "message": "Tema no válido."
             }
 
-        return UserModel.update_theme(current_user["id_usuario"], theme)
+        return UserModel.update_theme(current_user.get("id_usuario"), theme)
+
+    @staticmethod
+    def get_account_settings(current_user):
+        if not current_user:
+            return {
+                "success": False,
+                "message": "No hay usuario activo.",
+                "user": None
+            }
+
+        return UserModel.get_account_settings(current_user.get("id_usuario"))
+
+    @staticmethod
+    def update_account_settings(current_user, nombre, nombre_usuario, correo):
+        if not current_user:
+            return {
+                "success": False,
+                "message": "No hay usuario activo."
+            }
+
+        return UserModel.update_account_settings(
+            current_user.get("id_usuario"),
+            nombre,
+            nombre_usuario,
+            correo
+        )
+
+    @staticmethod
+    def update_password(current_user, current_password, new_password, confirm_password):
+        if not current_user:
+            return {
+                "success": False,
+                "message": "No hay usuario activo."
+            }
+
+        return UserModel.update_password(
+            current_user.get("id_usuario"),
+            current_password,
+            new_password,
+            confirm_password
+        )
