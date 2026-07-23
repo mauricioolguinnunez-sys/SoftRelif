@@ -979,6 +979,38 @@ class SpecialistView(ctk.CTkFrame):
 
         self.mostrar_mensaje(resultado["message"], error=not resultado["success"])
 
+    def sugerir_musica_usuario(self, track):
+        if not self.validar_usuario_seleccionado():
+            return {
+                "success": False,
+                "message": "Selecciona primero un usuario común."
+            }
+
+        if not isinstance(track, dict):
+            return {
+                "success": False,
+                "message": "Selecciona una pista válida."
+            }
+
+        descripcion = (
+            f"MUSICA_SUGERIDA\n"
+            f"ID: {track.get('id', '-')}\n"
+            f"Título: {track.get('title', '-')}\n"
+            f"Categoría: {track.get('category', '-')}\n"
+            f"Descripción: {track.get('description', '-')}"
+        )
+
+        resultado = self.registrar_accion(
+            accion="sugerir_musica",
+            descripcion=descripcion
+        )
+
+        if resultado["success"]:
+            self.seleccionar_usuario(self.usuario_seleccionado.get("id_usuario"))
+            self.cargar_usuarios()
+
+        return resultado
+
     def registrar_accion(self, accion, descripcion):
         conexion = get_connection()
         cursor = conexion.cursor(dictionary=True)
