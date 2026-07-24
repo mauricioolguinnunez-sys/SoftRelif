@@ -1,6 +1,9 @@
+import importlib.util
+from pathlib import Path
+from datetime import datetime, timezone
+
 import customtkinter as ctk
 from tkinter import messagebox
-from datetime import datetime
 
 from components import (
     SoftCard,
@@ -13,6 +16,33 @@ from components import (
 )
 
 from utils.theme_manager import ThemeManager
+
+
+def get_game_launcher_for_title(title):
+    mappings = {
+        "Patrones visuales": ("games/acomodar_cosas.py", "LibreriaZen"),
+        "Toque consciente": ("games/toque inteligente.py", "PaisajeBurbujasPastel"),
+        "Memoria ligera": ("games/memorama.py", "MemoramaEsteticoApp"),
+        "Observa y crece": ("games/regar.py", "RefugioEstudiantil"),
+    }
+
+    module_path, class_name = mappings.get(title, (None, None))
+    if not module_path or not class_name:
+        return None
+
+    file_path = Path(__file__).resolve().parents[1] / module_path
+    if not file_path.exists():
+        return None
+
+    module_name = f"softrelief_game_{Path(module_path).stem.replace(' ', '_')}"
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    if spec is None or spec.loader is None:
+        return None
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    return getattr(module, class_name)
 
 
 class MicrobreaksView(ctk.CTkFrame):
@@ -66,18 +96,18 @@ class MicrobreaksView(ctk.CTkFrame):
                 ],
             },
             {
-                "title": "Estiramiento guiado",
+                "title": "Observa y crece",
                 "category": "Energía",
                 "duration": 7,
-                "icon": "🧍",
+                "icon": "🌱",
                 "color": "#B78BFA",
-                "description": "Movimientos suaves para liberar tensión física y mejorar tu postura.",
-                "benefits": ["Libera tensión", "Activa el cuerpo", "Mejora postura"],
+                "description": "Riega el estanque y observa cómo florece el entorno mientras tu mente se sereniza.",
+                "benefits": ["Relaja la mente", "Fomenta calma", "Mejora la atención"],
                 "steps": [
-                    "Relaja hombros y cuello.",
-                    "Estira brazos lentamente.",
-                    "Gira el cuello con suavidad.",
-                    "Respira mientras haces cada movimiento."
+                    "Abre el juego de observación y crecimiento.",
+                    "Riega poco a poco para ver la escena cambiar.",
+                    "Respira con la calma del paisaje.",
+                    "Disfruta el momento sin prisa."
                 ],
             },
             {
@@ -512,7 +542,7 @@ class MicrobreaksView(ctk.CTkFrame):
             "category": self.selected_break["category"],
             "duration": self.selected_break["duration"],
             "description": self.selected_break["description"],
-            "started_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "started_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
             "completed": True,
         }
 
@@ -523,6 +553,21 @@ class MicrobreaksView(ctk.CTkFrame):
                 self.app.microbreak_history = []
 
             self.app.microbreak_history.append(payload)
+
+        launcher = get_game_launcher_for_title(self.selected_break["title"])
+        if launcher is not None:
+            try:
+                game_window = launcher()
+                if hasattr(game_window, "transient") and self.winfo_toplevel() is not None:
+                    game_window.transient(self.winfo_toplevel())
+                if hasattr(game_window, "grab_set"):
+                    game_window.grab_set()
+            except Exception as error:
+                messagebox.showerror(
+                    "No se pudo abrir el juego",
+                    f"Hubo un problema al iniciar el juego: {error}"
+                )
+            return
 
         self.show_microbreak_steps(payload)
 
