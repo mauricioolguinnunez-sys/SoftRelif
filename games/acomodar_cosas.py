@@ -3,9 +3,10 @@ import tkinter as tk
 import math
 import random
 
-class LibreriaZen(ctk.CTk):
-    def __init__(self):
-        super().__init__()
+class LibreriaZen(ctk.CTkToplevel):
+
+    def __init__(self, master=None):
+        super().__init__(master)
         
         # CONFIGURACION DE LA VENTANA
         self.title("Microdescansos 3: Acomodar libros")
@@ -295,5 +296,10 @@ class LibreriaZen(ctk.CTk):
         self.canvas.create_arc(x-8, y+5, x+8, y+15, start=180, extent=180, outline="#2C3E50", width=3, style=tk.ARC)
 
 if __name__ == "__main__":
-    app = LibreriaZen()
-    app.mainloop()
+    root = ctk.CTk()
+    root.withdraw()
+
+    app = LibreriaZen(master=root)
+    app.protocol("WM_DELETE_WINDOW", root.destroy)
+
+    root.mainloop()

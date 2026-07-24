@@ -557,11 +557,11 @@ class MicrobreaksView(ctk.CTkFrame):
         launcher = get_game_launcher_for_title(self.selected_break["title"])
         if launcher is not None:
             try:
-                game_window = launcher()
-                if hasattr(game_window, "transient") and self.winfo_toplevel() is not None:
-                    game_window.transient(self.winfo_toplevel())
-                if hasattr(game_window, "grab_set"):
-                    game_window.grab_set()
+                parent_window = self.winfo_toplevel()
+                game_window = launcher(parent_window)
+                if hasattr(game_window, "transient") and parent_window is not None:
+                    game_window.transient(parent_window)
+                game_window.focus()
             except Exception as error:
                 messagebox.showerror(
                     "No se pudo abrir el juego",

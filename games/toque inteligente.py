@@ -5,9 +5,10 @@ import tkinter as tk
 import math
 import random
 
-class PaisajeBurbujasPastel(ctk.CTk):
-    def __init__(self):
-        super().__init__()
+class PaisajeBurbujasPastel(ctk.CTkToplevel):
+
+    def __init__(self, master=None):
+        super().__init__(master)
         
         #CONFIGURACIÓN DE VENTANA, QUE TAMANO Y QUE VA DECIR 
         self.title("Microdescanso 1: Burbujas.")
@@ -351,5 +352,10 @@ class PaisajeBurbujasPastel(ctk.CTk):
             self.canvas.create_arc(x + 2*escala, y - 22*escala - breathe, x + 16*escala, y - 12*escala - breathe, start=0, extent=180, outline="#4ADE80", width=max(1, int(3*escala)), style=tk.ARC)
 
 if __name__ == "__main__":
-    app = PaisajeBurbujasPastel()
-    app.mainloop()
+    root = ctk.CTk()
+    root.withdraw()
+
+    app = PaisajeBurbujasPastel(master=root)
+    app.protocol("WM_DELETE_WINDOW", root.destroy)
+
+    root.mainloop()

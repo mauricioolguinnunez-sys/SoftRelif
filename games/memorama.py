@@ -5,9 +5,10 @@ from PIL import Image, ImageTk
 
 ctk.set_appearance_mode("Light")  # PONER PARA QUE SE ADAPTE AL SISTEMA
 
-class MemoramaEsteticoApp(ctk.CTk):
-    def __init__(self):
-        super().__init__()
+class MemoramaEsteticoApp(ctk.CTkToplevel):
+
+    def __init__(self, master=None):
+        super().__init__(master)
         
         self.title("Microdescanso 2: Memorama")
         self.geometry("600x700")
@@ -130,5 +131,10 @@ class MemoramaEsteticoApp(ctk.CTk):
         self.puede_hacer_click = True
 
 if __name__ == "__main__":
-    app = MemoramaEsteticoApp()
-    app.mainloop()
+    root = ctk.CTk()
+    root.withdraw()
+
+    app = MemoramaEsteticoApp(master=root)
+    app.protocol("WM_DELETE_WINDOW", root.destroy)
+
+    root.mainloop()

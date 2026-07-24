@@ -3,9 +3,10 @@ import tkinter as tk
 import math
 import random
 
-class RefugioEstudiantil(ctk.CTk):
-    def __init__(self):
-        super().__init__()
+class RefugioEstudiantil(ctk.CTkToplevel):
+
+    def __init__(self, master=None):
+        super().__init__(master)
         
         # --- CONFIGURACIÓN DE VENTANA ---
         self.title("SoftRelief - Refugio de Cristal")
@@ -302,5 +303,10 @@ class RefugioEstudiantil(ctk.CTk):
             indice_petalo += 1
 
 if __name__ == "__main__":
-    app = RefugioEstudiantil()
-    app.mainloop()
+    root = ctk.CTk()
+    root.withdraw()
+
+    app = RefugioEstudiantil(master=root)
+    app.protocol("WM_DELETE_WINDOW", root.destroy)
+
+    root.mainloop()
