@@ -232,13 +232,15 @@ class UserModel:
                 INSERT INTO preferencia_visual (
                     id_tema,
                     tamano_fuente,
-                    modo_visualizacion
+                    modo_visualizacion,
+                    idioma
                 )
-                VALUES (%s, %s, %s);
+                VALUES (%s, %s, %s, %s);
             """, (
                 tema_row["id_tema"],
                 "normal",
-                "estandar"
+                "estandar",
+                "es"
             ))
 
             id_preferencia = cursor.lastrowid
@@ -312,7 +314,8 @@ class UserModel:
                     pv.id_preferencia,
                     t.nombre AS tema_visual,
                     pv.tamano_fuente,
-                    pv.modo_visualizacion
+                    pv.modo_visualizacion,
+                    COALESCE(pv.idioma, 'es') AS idioma
                 FROM usuario u
                 LEFT JOIN rol r
                     ON u.id_rol = r.id_rol
@@ -332,6 +335,7 @@ class UserModel:
             if user:
                 user["usuario"] = user.get("correo")
                 user["tema_visual"] = user.get("tema_visual") or "light"
+                user["idioma"] = user.get("idioma") or "es"
 
             return user
 
@@ -365,7 +369,8 @@ class UserModel:
                     ec.nombre AS estado,
                     t.nombre AS tema_visual,
                     pv.tamano_fuente,
-                    pv.modo_visualizacion
+                    pv.modo_visualizacion,
+                    COALESCE(pv.idioma, 'es') AS idioma
                 FROM usuario u
                 LEFT JOIN rol r
                     ON u.id_rol = r.id_rol
@@ -384,6 +389,7 @@ class UserModel:
             if user:
                 user["usuario"] = user.get("correo")
                 user["tema_visual"] = user.get("tema_visual") or "light"
+                user["idioma"] = user.get("idioma") or "es"
 
             return user
 
@@ -418,7 +424,8 @@ class UserModel:
                     pv.id_preferencia,
                     COALESCE(t.nombre, 'light') AS tema_visual,
                     COALESCE(pv.tamano_fuente, 'normal') AS tamano_fuente,
-                    COALESCE(pv.modo_visualizacion, 'estandar') AS modo_visualizacion
+                    COALESCE(pv.modo_visualizacion, 'estandar') AS modo_visualizacion,
+                    COALESCE(pv.idioma, 'es') AS idioma
                 FROM usuario u
                 LEFT JOIN rol r
                     ON u.id_rol = r.id_rol
@@ -466,6 +473,7 @@ class UserModel:
                     COALESCE(t.nombre, 'light') AS tema_visual,
                     COALESCE(pv.tamano_fuente, 'normal') AS tamano_fuente,
                     COALESCE(pv.modo_visualizacion, 'estandar') AS modo_visualizacion,
+                    COALESCE(pv.idioma, 'es') AS idioma,
 
                     COUNT(b.id_bitacora) AS acciones_especialista,
 
@@ -500,7 +508,8 @@ class UserModel:
                     pv.id_preferencia,
                     t.nombre,
                     pv.tamano_fuente,
-                    pv.modo_visualizacion
+                    pv.modo_visualizacion,
+                    pv.idioma
                 ORDER BY u.id_usuario DESC;
             """, (id_especialista,))
 
@@ -535,7 +544,8 @@ class UserModel:
                     pv.id_preferencia,
                     COALESCE(t.nombre, 'light') AS tema_visual,
                     COALESCE(pv.tamano_fuente, 'normal') AS tamano_fuente,
-                    COALESCE(pv.modo_visualizacion, 'estandar') AS modo_visualizacion
+                    COALESCE(pv.modo_visualizacion, 'estandar') AS modo_visualizacion,
+                    COALESCE(pv.idioma, 'es') AS idioma
                 FROM usuario u
                 LEFT JOIN rol r
                     ON u.id_rol = r.id_rol
@@ -680,7 +690,8 @@ class UserModel:
                     ec.nombre AS estado,
                     t.nombre AS tema_visual,
                     pv.tamano_fuente,
-                    pv.modo_visualizacion
+                    pv.modo_visualizacion,
+                    COALESCE(pv.idioma, 'es') AS idioma
                 FROM usuario u
                 LEFT JOIN rol r
                     ON u.id_rol = r.id_rol
@@ -985,6 +996,48 @@ class UserModel:
             return {
                 "success": False,
                 "message": f"No se pudo actualizar el tema: {error}"
+            }
+
+        finally:
+            cursor.close()
+            conexion.close()
+
+    @staticmethod
+    def update_language(user_or_id, idioma):
+        if idioma not in ["es", "en"]:
+            return {
+                "success": False,
+                "message": "Idioma no válido."
+            }
+
+        id_usuario = UserModel.normalize_user_id(user_or_id)
+
+        conexion = get_connection()
+        cursor = conexion.cursor(dictionary=True)
+
+        try:
+            cursor.execute("""
+                UPDATE preferencia_visual pv
+                INNER JOIN usuario u
+                    ON pv.id_preferencia = u.id_preferencia
+                SET pv.idioma = %s
+                WHERE u.id_usuario = %s;
+            """, (idioma, id_usuario))
+
+            conexion.commit()
+
+            return {
+                "success": True,
+                "message": "Idioma actualizado correctamente.",
+                "idioma": idioma
+            }
+
+        except Exception as error:
+            conexion.rollback()
+
+            return {
+                "success": False,
+                "message": f"No se pudo actualizar el idioma: {error}"
             }
 
         finally:

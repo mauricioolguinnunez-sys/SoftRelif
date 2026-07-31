@@ -45,7 +45,17 @@ class SettingsView(ctk.CTkFrame):
 
     def __init__(self, master, app=None):
         self.app = app
-        self.user = getattr(app, "current_user", None)
+        self.current_user = getattr(app, "current_user", None)
+        self.user = self.current_user
+
+        if not self.current_user:
+            super().__init__(
+                master,
+                fg_color="transparent",
+                corner_radius=0
+            )
+            self.build_view()
+            return
 
         self.theme_name = self.get_current_theme()
         self.theme = ThemeManager.get_theme(self.theme_name)
@@ -56,7 +66,8 @@ class SettingsView(ctk.CTkFrame):
             corner_radius=0
         )
 
-        Lang.set(AppState.load_language())
+        user_lang = self.user.get("idioma") if self.user else None
+        Lang.set(user_lang or AppState.load_language())
 
         self.selected_theme = self.theme_name
         self.persist_theme = True
@@ -279,8 +290,10 @@ class SettingsView(ctk.CTkFrame):
             pady=(0, 18)
         )
 
+        self.build_language_section(left)
+
         self.build_account_options_card(left).grid(
-            row=2,
+            row=3,
             column=0,
             columnspan=2,
             sticky="ew",
@@ -292,7 +305,7 @@ class SettingsView(ctk.CTkFrame):
             theme=self.theme,
             command=self.confirm_delete_account
         ).grid(
-            row=3,
+            row=4,
             column=0,
             columnspan=2,
             sticky="ew",
@@ -305,7 +318,7 @@ class SettingsView(ctk.CTkFrame):
             text_color=self.theme.get("text_soft", "#6B7280")
         )
         self.message_label.grid(
-            row=4,
+            row=5,
             column=0,
             columnspan=2,
             sticky="w",
@@ -412,6 +425,95 @@ class SettingsView(ctk.CTkFrame):
             column=0,
             sticky="nsew"
         )
+
+    # =====================================================
+    # LANGUAGE SECTION
+    # =====================================================
+
+    def build_language_section(self, parent):
+        card = ctk.CTkFrame(
+            parent,
+            fg_color=self.c("card_bg", "#FFFFFF"),
+            border_width=1,
+            border_color=self.c("card_border", "#E5E7EB"),
+            corner_radius=22
+        )
+        card.grid(
+            row=2, column=0, columnspan=2, sticky="ew", pady=(0, 18)
+        )
+        card.grid_columnconfigure(0, weight=1)
+        card.grid_columnconfigure(1, weight=1)
+
+        TitleLabel(
+            card,
+            Lang.get("settings_language"),
+            size=20,
+            text_color=self.c("text", "#1E1B4B")
+        ).grid(
+            row=0, column=0, columnspan=2, sticky="w", padx=20, pady=(20, 4)
+        )
+
+        BodyLabel(
+            card,
+            Lang.get("settings_language_desc"),
+            size=13,
+            text_color=self.c("text_soft", "#6B7280")
+        ).grid(
+            row=1, column=0, columnspan=2, sticky="w", padx=20, pady=(0, 14)
+        )
+
+        self.create_language_button(card, "es", u"\U0001F1F2\U0001F1FD " + Lang.get("settings_language_es"), 2, 0)
+        self.create_language_button(card, "en", u"\U0001F1FA\U0001F1F8 " + Lang.get("settings_language_en"), 2, 1)
+
+    def create_language_button(self, parent, idioma, text, row, column):
+        selected = self.current_user.get("idioma", "es") == idioma
+
+        padx_left = (20, 8) if column == 0 else (8, 20)
+
+        button = ctk.CTkButton(
+            parent,
+            text=text,
+            height=44,
+            corner_radius=16,
+            fg_color=self.c("accent_soft", "#EDE9FE") if selected else self.c("app_bg", "#F6F7FB"),
+            hover_color=self.c("menu_hover", "#F3F4F6"),
+            text_color=self.c("accent", "#8B5CF6") if selected else self.c("text", "#1E1B4B"),
+            border_width=2 if selected else 1,
+            border_color=self.c("accent", "#8B5CF6") if selected else self.c("card_border", "#E5E7EB"),
+            font=("Segoe UI", 13, "bold"),
+            command=lambda: self.change_language(idioma)
+        )
+        button.grid(row=row, column=column, sticky="ew", padx=padx_left, pady=(0, 20))
+
+        setattr(self, f"_lang_btn_{idioma}", button)
+
+    def change_language(self, idioma):
+        if idioma not in ["es", "en"]:
+            self.show_message("Idioma no v\u00e1lido.", error=True)
+            return
+
+        result = UserController.update_language(self.current_user, idioma)
+
+        if not result.get("success"):
+            self.show_message(
+                result.get("message", Lang.get("settings_language_error")),
+                error=True
+            )
+            return
+
+        self.current_user["idioma"] = idioma
+
+        if hasattr(self.app, "current_user") and self.app.current_user:
+            self.app.current_user["idioma"] = idioma
+
+        Lang.set(idioma)
+        AppState.save_language(idioma)
+
+        self.show_message(Lang.get("settings_language_updated"))
+        self.after(300, self.reload_settings_view)
+
+    def reload_settings_view(self):
+        self.build_view()
 
     # =====================================================
     # SUBVIEW DATOS DE CUENTA
@@ -856,6 +958,7 @@ class SettingsView(ctk.CTkFrame):
                 "tema_visual": updated_user.get("tema_visual", self.user.get("tema_visual")),
                 "rol": updated_user.get("rol", self.user.get("rol")),
                 "estado": updated_user.get("estado", self.user.get("estado")),
+                "idioma": updated_user.get("idioma", self.user.get("idioma", "es")),
             })
 
             if self.app:

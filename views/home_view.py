@@ -52,7 +52,8 @@ class HomeView(ctk.CTkFrame):
         self.safe_apply_theme()
         AppState.save_last_theme(self.theme_name)
 
-        Lang.set(AppState.load_language())
+        user_lang = self.current_user.get("idioma") if self.current_user else None
+        Lang.set(user_lang or AppState.load_language())
 
         super().__init__(
             master,
@@ -67,11 +68,25 @@ class HomeView(ctk.CTkFrame):
         self.lang_frame = None
         self.current_view_key = NAV_HOME
 
-        self.pack(fill="both", expand=True)
         self.build_layout()
         self.show_default_view()
 
-    def c(self, key, default):
+    def c(self, key, default=None):
+        fallback = {
+            "app_bg": "#F6F7FB",
+            "sidebar_bg": "#FFFFFF",
+            "card_bg": "#FFFFFF",
+            "card_border": "#E5E7EB",
+            "text": "#1E1B4B",
+            "text_soft": "#6B7280",
+            "accent": "#8B5CF6",
+            "accent_soft": "#EDE9FE",
+            "button_hover": "#7C3AED",
+            "menu_hover": "#F3F4F6",
+            "danger": "#DC2626",
+        }
+        if default is None:
+            default = fallback.get(key, "#000000")
         return self.theme.get(key, default)
 
     def get_theme_name(self):
@@ -342,54 +357,59 @@ class HomeView(ctk.CTkFrame):
         ).grid(row=1, column=1, sticky="w", pady=(0, 14))
 
     def sidebar_language_selector(self):
-        self.lang_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        self.lang_frame.grid(row=3, column=0, sticky="ew", padx=18, pady=(4, 24))
+        container = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        container.grid(row=3, column=0, sticky="ew", padx=18, pady=(4, 24))
+        container.grid_columnconfigure(0, weight=1)
+        container.grid_columnconfigure(1, weight=1)
 
         SmallLabel(
-            self.lang_frame,
+            container,
             Lang.get("sidebar_language"),
             text_color=self.c("text_soft", "#7E86A3")
-        ).pack(anchor="center", pady=(0, 6))
-
-        lang_box = self.frame(self.lang_frame)
-        lang_box.pack(anchor="center")
+        ).grid(row=0, column=0, columnspan=2, pady=(0, 6))
 
         current = Lang.current()
+        es_selected = current == "es"
+        en_selected = current == "en"
+
         btn_es = ctk.CTkButton(
-            lang_box,
+            container,
             text=Lang.get("language_es"),
-            width=40,
-            height=28,
-            corner_radius=8,
-            font=("Segoe UI", 11, "bold"),
-            fg_color=self.c("accent") if current == "es" else self.c("card_bg"),
-            hover_color=self.c("button_hover"),
-            text_color="#FFFFFF" if current == "es" else self.c("text"),
+            height=32,
+            corner_radius=12,
+            fg_color=self.c("accent_soft", "#EDE9FE") if es_selected else self.c("card_bg", "#FFFFFF"),
+            text_color=self.c("accent", "#8B5CF6") if es_selected else self.c("text_soft", "#6B7280"),
             border_width=1,
-            border_color=self.c("accent"),
+            border_color=self.c("accent", "#8B5CF6") if es_selected else self.c("card_border", "#E5E7EB"),
             command=lambda: self.set_language("es")
         )
-        btn_es.pack(side="left", padx=(0, 4))
+        btn_es.grid(row=1, column=0, sticky="ew", padx=(0, 4))
 
         btn_en = ctk.CTkButton(
-            lang_box,
+            container,
             text=Lang.get("language_en"),
-            width=40,
-            height=28,
-            corner_radius=8,
-            font=("Segoe UI", 11, "bold"),
-            fg_color=self.c("accent") if current == "en" else self.c("card_bg"),
-            hover_color=self.c("button_hover"),
-            text_color="#FFFFFF" if current == "en" else self.c("text"),
+            height=32,
+            corner_radius=12,
+            fg_color=self.c("accent_soft", "#EDE9FE") if en_selected else self.c("card_bg", "#FFFFFF"),
+            text_color=self.c("accent", "#8B5CF6") if en_selected else self.c("text_soft", "#6B7280"),
             border_width=1,
-            border_color=self.c("accent"),
+            border_color=self.c("accent", "#8B5CF6") if en_selected else self.c("card_border", "#E5E7EB"),
             command=lambda: self.set_language("en")
         )
-        btn_en.pack(side="left")
+        btn_en.grid(row=1, column=1, sticky="ew", padx=(4, 0))
 
     def set_language(self, lang):
+        if lang not in ["es", "en"]:
+            return
+
         Lang.set(lang)
         AppState.save_language(lang)
+
+        if self.current_user:
+            self.current_user["idioma"] = lang
+            from controllers.user_controller import UserController
+            UserController.update_language(self.current_user, lang)
+
         self.rebuild_sidebar()
         self.reload_current_view()
 
@@ -482,7 +502,7 @@ class HomeView(ctk.CTkFrame):
                     row=0,
                     column=0,
                     columnspan=3,
-                    sticky="new",
+                    sticky="nsew",
                     padx=0,
                     pady=0
                 )

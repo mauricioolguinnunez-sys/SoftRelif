@@ -37,6 +37,9 @@ def create_tables():
         insertar_catalogos_base(cursor)
         conexion.commit()
 
+        migrar_idioma_preferencia_visual(cursor)
+        conexion.commit()
+
         asignar_permisos_base(cursor)
         conexion.commit()
 
@@ -520,6 +523,36 @@ def obtener_id(cursor, tabla, campo, valor, campo_id):
         raise ValueError(f"No existe '{valor}' en la tabla '{tabla}'.")
 
     return resultado[campo_id]
+
+
+# =====================================================
+# MIGRACIÓN SEGURA: idioma en preferencia_visual
+# =====================================================
+
+def migrar_idioma_preferencia_visual(cursor):
+    """
+    Agrega la columna 'idioma' a preferencia_visual si no existe.
+    No hace DROP ni borra datos.
+    """
+
+    cursor.execute("""
+        SELECT COUNT(*) AS total
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = 'preferencia_visual'
+          AND column_name = 'idioma';
+    """)
+
+    row = cursor.fetchone()
+    existe = row["total"] > 0
+
+    if not existe:
+        cursor.execute("""
+            ALTER TABLE preferencia_visual
+            ADD COLUMN idioma VARCHAR(10) NOT NULL DEFAULT 'es';
+        """)
+
+        print("Columna 'idioma' agregada a preferencia_visual.")
 
 
 if __name__ == "__main__":

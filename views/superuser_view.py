@@ -34,7 +34,8 @@ class BaseVistaComponentes(ctk.CTkFrame):
         if self.usuario_actual:
             nombre_tema = self.usuario_actual.get("tema_visual", "light")
 
-        Lang.set(AppState.load_language())
+        user_lang = self.usuario_actual.get("idioma") if self.usuario_actual else None
+        Lang.set(user_lang or AppState.load_language())
 
         self.tema = ThemeManager.get_theme(nombre_tema)
 

@@ -31,7 +31,6 @@ class LoginView(ctk.CTkFrame):
         )
 
         self.app = app
-        self.pack(fill="both", expand=True)
 
         self.theme_name = getattr(self.app, "login_theme", "light")
         self.theme = ThemeManager.get_theme(self.theme_name)
@@ -573,6 +572,10 @@ class LoginView(ctk.CTkFrame):
             self.app.login_theme = user_theme
             AppState.save_last_theme(user_theme)
             ThemeManager.apply_mode(user_theme)
+
+            user_lang = result["user"].get("idioma", "es")
+            Lang.set(user_lang)
+            AppState.save_language(user_lang)
 
             self.app.show_home()
         else:

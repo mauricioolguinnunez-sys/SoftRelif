@@ -338,7 +338,7 @@ class CalmModeView(ctk.CTkFrame):
             command=command,
         )
 
-def build_options_column(self, parent):
+    def build_options_column(self, parent):
         right = ctk.CTkFrame(parent, fg_color="transparent")
         right.grid(row=0, column=1, sticky="nsew", padx=(14, 0))
         right.grid_columnconfigure(0, weight=1)

@@ -23,7 +23,8 @@ class HistoryView(ctk.CTkFrame):
 
     def __init__(self, master, app=None, user=None):
         self.app = app
-        self.user = user
+        self.current_user = getattr(app, "current_user", None)
+        self.user = user or self.current_user
         self.theme_name = self.get_theme_name()
         self.theme = ThemeManager.get_theme(self.theme_name)
 
@@ -37,8 +38,10 @@ class HistoryView(ctk.CTkFrame):
         self.microbreaks = self.load_microbreaks()
         self.summary = {}
 
-        self.grid_columnconfigure(0, weight=2)
-        self.grid_columnconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=3)
+        self.grid_columnconfigure(1, weight=1, minsize=240)
+        self.grid_rowconfigure(0, weight=0)
+        self.grid_rowconfigure(1, weight=0)
         self.grid_rowconfigure(2, weight=1)
 
         self.load_data()

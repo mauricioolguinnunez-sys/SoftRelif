@@ -64,7 +64,8 @@ class MicrobreaksView(ctk.CTkFrame):
             corner_radius=0
         )
 
-        Lang.set(AppState.load_language())
+        user_lang = self.user.get("idioma") if self.user else None
+        Lang.set(user_lang or AppState.load_language())
 
         self.category_keys = [
             ("all", "micro_filter_all"),
@@ -196,6 +197,18 @@ class MicrobreaksView(ctk.CTkFrame):
         if self.user:
             return self.user.get("nombre", "Usuario")
         return "Usuario"
+
+    def normalize_microbreak(self, microbreak):
+        return {
+            "title": microbreak.get("title", microbreak.get("nombre", "Microdescanso")),
+            "category": microbreak.get("category", microbreak.get("categoria", microbreak.get("category_key", "General"))),
+            "duration": microbreak.get("duration", microbreak.get("duracion", 5)),
+            "description": microbreak.get("description", microbreak.get("descripcion", "Actividad breve de bienestar.")),
+            "icon": microbreak.get("icon", microbreak.get("icono", "☕")),
+            "color": microbreak.get("color", "#8EDCC7"),
+            "lang_key": microbreak.get("lang_key", "pause"),
+            "steps": microbreak.get("steps", []),
+        }
 
     # =====================================================
     # BUILD
@@ -481,7 +494,7 @@ class MicrobreaksView(ctk.CTkFrame):
         self.render_break_cards()
 
     def select_break(self, item):
-        self.selected_break = item
+        self.selected_break = self.normalize_microbreak(item)
         self.refresh_break_cards()
         self.update_preview()
 
@@ -550,12 +563,17 @@ class MicrobreaksView(ctk.CTkFrame):
             )
             return
 
+        title = self.selected_break.get("title", "Microdescanso")
+        category = self.selected_break.get("category", "General")
+        duration = self.selected_break.get("duration", 5)
+        description = self.selected_break.get("description", "Actividad breve de bienestar.")
+
         payload = {
             "user_id": self.user.get("id_usuario") if self.user else None,
-            "title": self.selected_break["title"],
-            "category": self.selected_break["category"],
-            "duration": self.selected_break["duration"],
-            "description": self.selected_break["description"],
+            "title": title,
+            "category": category,
+            "duration": duration,
+            "description": description,
             "started_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
             "completed": True,
         }
@@ -568,7 +586,7 @@ class MicrobreaksView(ctk.CTkFrame):
 
             self.app.microbreak_history.append(payload)
 
-        launcher = get_game_launcher_for_title(self.selected_break["title"])
+        launcher = get_game_launcher_for_title(self.selected_break.get("title", ""))
         if launcher is not None:
             try:
                 parent_window = self.winfo_toplevel()
@@ -587,17 +605,17 @@ class MicrobreaksView(ctk.CTkFrame):
 
     def show_microbreak_steps(self, payload):
         steps_lines = []
-        for index, step in enumerate(self.selected_break["steps"]):
+        for index, step in enumerate(self.selected_break.get("steps", [])):
             steps_lines.append(Lang.get("micro_steps_format", number=index + 1, step=step))
         steps = "\n".join(steps_lines)
 
         parts = [
             Lang.get("micro_started"),
-            Lang.get("micro_duration_suggested", duration=payload["duration"]),
+            Lang.get("micro_duration_suggested", duration=payload.get("duration", 5)),
             steps,
             Lang.get("micro_saved"),
         ]
         messagebox.showinfo(
-            payload["title"],
+            payload.get("title", "Microdescanso"),
             "\n\n".join(parts)
         )

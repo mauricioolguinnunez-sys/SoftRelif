@@ -359,6 +359,13 @@ TRANSLATIONS = {
         "settings_account_deleted_msg": "La cuenta fue eliminada correctamente.",
         "settings_username_note": "Este campo se guarda en la columna usuario.usuario.",
         "settings_username_note_alt": "Tu modelo actual no tiene columna usuario; el acceso se maneja con correo.",
+        "settings_language": "Idioma",
+        "settings_language_desc": "Selecciona el idioma de la interfaz.",
+        "settings_language_es": "Español",
+        "settings_language_en": "English",
+        "settings_language_updated": "Idioma actualizado correctamente.",
+        "settings_language_error": "No se pudo actualizar el idioma.",
+
         "settings_name_placeholder": "Tu nombre",
         "settings_username_placeholder": "Nombre de usuario",
         "settings_email_placeholder": "correo@ejemplo.com",
@@ -767,6 +774,13 @@ TRANSLATIONS = {
         "settings_account_deleted_msg": "The account was deleted successfully.",
         "settings_username_note": "This field is saved in the usuario.usuario column.",
         "settings_username_note_alt": "Your current model does not have a usuario column; access is managed by email.",
+        "settings_language": "Language",
+        "settings_language_desc": "Select the interface language.",
+        "settings_language_es": "Español",
+        "settings_language_en": "English",
+        "settings_language_updated": "Language updated successfully.",
+        "settings_language_error": "Could not update the language.",
+
         "settings_name_placeholder": "Your name",
         "settings_username_placeholder": "Username",
         "settings_email_placeholder": "email@example.com",
@@ -821,8 +835,8 @@ class Lang:
     _current = "es"
 
     @classmethod
-    def get(cls, key, **kwargs):
-        text = TRANSLATIONS.get(cls._current, {}).get(key, key)
+    def get(cls, key_name, **kwargs):
+        text = TRANSLATIONS.get(cls._current, {}).get(key_name, key_name)
         if kwargs:
             text = text.format(**kwargs)
         return text

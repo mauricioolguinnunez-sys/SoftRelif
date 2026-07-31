@@ -108,3 +108,19 @@ class UserController:
             new_password,
             confirm_password
         )
+
+    @staticmethod
+    def update_language(current_user, idioma):
+        if not current_user:
+            return {
+                "success": False,
+                "message": "No hay usuario activo."
+            }
+
+        if idioma not in ["es", "en"]:
+            return {
+                "success": False,
+                "message": "Idioma no válido."
+            }
+
+        return UserModel.update_language(current_user.get("id_usuario"), idioma)

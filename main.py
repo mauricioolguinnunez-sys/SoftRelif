@@ -116,7 +116,8 @@ class SoftReliefApp(ctk.CTk):
             fg_color=theme.get("app_bg", "#F6F7FB")
         )
 
-        LoginView(self, self)
+        view = LoginView(self, self)
+        view.pack(fill="both", expand=True)
 
     def show_home(self):
         """
@@ -146,7 +147,8 @@ class SoftReliefApp(ctk.CTk):
 
         self.clear_window()
 
-        HomeView(self, self)
+        view = HomeView(self, self)
+        view.pack(fill="both", expand=True)
 
     def logout(self):
         """
@@ -192,6 +194,14 @@ class SoftReliefApp(ctk.CTk):
 
             ThemeManager.apply_mode(theme_name)
             AppState.save_last_theme(theme_name)
+
+            idioma = self.current_user.get("idioma", "es")
+
+            if idioma not in ["es", "en"]:
+                idioma = "es"
+
+            Lang.set(idioma)
+            AppState.save_language(idioma)
 
     # =====================================================
     # CIERRE DE APP
