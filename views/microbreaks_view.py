@@ -16,6 +16,8 @@ from components import (
 )
 
 from utils.theme_manager import ThemeManager
+from utils.i18n import Lang
+from utils.app_state import AppState
 
 
 def get_game_launcher_for_title(title):
@@ -48,12 +50,6 @@ def get_game_launcher_for_title(title):
 class MicrobreaksView(ctk.CTkFrame):
     """
     Vista de Microdescansos de SoftRelief.
-
-    RF principal:
-    - RF-015 Realizar microdescansos.
-
-    Conexión futura:
-    - RF-016 Consultar historial del usuario.
     """
 
     def __init__(self, master, app=None, user=None):
@@ -68,7 +64,16 @@ class MicrobreaksView(ctk.CTkFrame):
             corner_radius=0
         )
 
-        self.selected_category = "Todos"
+        Lang.set(AppState.load_language())
+
+        self.category_keys = [
+            ("all", "micro_filter_all"),
+            ("relax", "micro_filter_relax"),
+            ("focus", "micro_filter_focus"),
+            ("energy", "micro_filter_energy"),
+            ("creativity", "micro_filter_creativity"),
+        ]
+        self.selected_category = "all"
         self.selected_break = None
         self.category_buttons = {}
         self.break_cards = []
@@ -82,12 +87,14 @@ class MicrobreaksView(ctk.CTkFrame):
         self.microbreaks = [
             {
                 "title": "Pausa breve",
-                "category": "Relajación",
+                "lang_key": "pause",
+                "category_key": "relax",
                 "duration": 5,
                 "icon": "☕",
                 "color": "#8EDCC7",
                 "description": "Una pausa corta para soltar la tensión acumulada, respirar y reconectar contigo.",
                 "benefits": ["Reduce el estrés", "Aclara tu mente", "Mejora tu enfoque"],
+                "benefit_keys": ["stress", "mind", "focus"],
                 "steps": [
                     "Siéntate con la espalda cómoda.",
                     "Inhala lentamente durante 4 segundos.",
@@ -97,12 +104,14 @@ class MicrobreaksView(ctk.CTkFrame):
             },
             {
                 "title": "Observa y crece",
-                "category": "Energía",
+                "lang_key": "grow",
+                "category_key": "energy",
                 "duration": 7,
                 "icon": "🌱",
                 "color": "#B78BFA",
                 "description": "Riega el estanque y observa cómo florece el entorno mientras tu mente se sereniza.",
                 "benefits": ["Relaja la mente", "Fomenta calma", "Mejora la atención"],
+                "benefit_keys": ["relax", "calm", "attention"],
                 "steps": [
                     "Abre el juego de observación y crecimiento.",
                     "Riega poco a poco para ver la escena cambiar.",
@@ -112,12 +121,14 @@ class MicrobreaksView(ctk.CTkFrame):
             },
             {
                 "title": "Patrones visuales",
-                "category": "Enfoque",
+                "lang_key": "patterns",
+                "category_key": "focus",
                 "duration": 4,
                 "icon": "👁",
                 "color": "#8FB8FF",
                 "description": "Observa, relaja tu mente y mejora tu enfoque con patrones calmantes.",
                 "benefits": ["Descansa la vista", "Mejora atención", "Baja saturación"],
+                "benefit_keys": ["rest_eyes", "attention", "lower_saturation"],
                 "steps": [
                     "Mira un punto fijo.",
                     "Sigue un patrón visual simple.",
@@ -127,12 +138,14 @@ class MicrobreaksView(ctk.CTkFrame):
             },
             {
                 "title": "Toque consciente",
-                "category": "Relajación",
+                "lang_key": "touch",
+                "category_key": "relax",
                 "duration": 3,
                 "icon": "☝",
                 "color": "#8EDCC7",
                 "description": "Pequeñas interacciones para anclar tu atención en el momento presente.",
                 "benefits": ["Vuelve al presente", "Reduce ansiedad", "Regula atención"],
+                "benefit_keys": ["present", "anxiety", "regulate"],
                 "steps": [
                     "Toca suavemente la mesa.",
                     "Nota la textura.",
@@ -142,12 +155,14 @@ class MicrobreaksView(ctk.CTkFrame):
             },
             {
                 "title": "Memoria ligera",
-                "category": "Creatividad",
+                "lang_key": "memory",
+                "category_key": "creativity",
                 "duration": 6,
                 "icon": "🧠",
                 "color": "#C59BFF",
                 "description": "Ejercita tu memoria de forma amable con una actividad breve y sencilla.",
                 "benefits": ["Activa memoria", "Estimula creatividad", "Rompe rutina"],
+                "benefit_keys": ["memory", "creativity", "routine"],
                 "steps": [
                     "Observa 4 elementos cercanos.",
                     "Cierra los ojos unos segundos.",
@@ -210,14 +225,14 @@ class MicrobreaksView(ctk.CTkFrame):
 
         TitleLabel(
             title_box,
-            "Microdescansos y minijuegos",
+            Lang.get("micro_title"),
             size=34,
             text_color=self.c("text", "#1E1B4B")
         ).pack(anchor="w")
 
         SubtitleLabel(
             title_box,
-            "Pequeñas pausas para recargar tu mente y volver al presente.",
+            Lang.get("micro_subtitle"),
             size=15,
             text_color=self.c("text_soft", "#6B7280")
         ).pack(anchor="w", pady=(2, 0))
@@ -227,14 +242,14 @@ class MicrobreaksView(ctk.CTkFrame):
 
         SmallLabel(
             user_box,
-            f"Hola, {self.get_user_name()}",
+            Lang.get("micro_hello", name=self.get_user_name()),
             size=14,
             text_color=self.c("text", "#1E1B4B")
         ).pack(anchor="e")
 
         SmallLabel(
             user_box,
-            "Todo en equilibrio",
+            Lang.get("micro_balance"),
             size=12,
             text_color=self.c("text_soft", "#6B7280")
         ).pack(anchor="e")
@@ -263,18 +278,16 @@ class MicrobreaksView(ctk.CTkFrame):
         filters = ctk.CTkFrame(parent, fg_color="transparent")
         filters.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 18))
 
-        categories = ["Todos", "Relajación", "Enfoque", "Energía", "Creatividad"]
-
-        for index, category in enumerate(categories):
+        for index, (key, lang_key) in enumerate(self.category_keys):
             btn = SecondaryButton(
                 filters,
-                text=category,
+                text=Lang.get(lang_key),
                 height=38,
-                command=lambda c=category: self.select_category(c)
+                command=lambda k=key: self.select_category(k)
             )
             btn.grid(row=0, column=index, padx=(0, 10), sticky="ew")
             filters.grid_columnconfigure(index, weight=1)
-            self.category_buttons[category] = btn
+            self.category_buttons[key] = btn
 
         self.refresh_category_buttons()
 
@@ -286,7 +299,7 @@ class MicrobreaksView(ctk.CTkFrame):
 
         visible_items = [
             item for item in self.microbreaks
-            if self.selected_category == "Todos" or item["category"] == self.selected_category
+            if self.selected_category == "all" or item["category_key"] == self.selected_category
         ]
 
         for index, item in enumerate(visible_items):
@@ -335,20 +348,20 @@ class MicrobreaksView(ctk.CTkFrame):
 
         TitleLabel(
             card,
-            item["title"],
+            Lang.get(f"micro_breaks_{item['lang_key']}"),
             size=19,
             text_color=self.c("text", "#1E1B4B")
         ).grid(row=0, column=1, sticky="w", padx=(0, 22), pady=(26, 4))
 
         SmallLabel(
             card,
-            f"◷ {item['duration']} min",
+            Lang.get("micro_duration", min=item["duration"]),
             text_color=self.c("text_soft", "#6B7280")
         ).grid(row=1, column=1, sticky="w", padx=(0, 22))
 
         BodyLabel(
             card,
-            item["description"],
+            Lang.get(f"micro_breaks_{item['lang_key']}_desc"),
             size=13,
             text_color=self.c("text_soft", "#6B7280"),
             wraplength=230
@@ -384,7 +397,7 @@ class MicrobreaksView(ctk.CTkFrame):
 
         TitleLabel(
             top,
-            "Vista previa",
+            Lang.get("micro_preview_title"),
             size=20,
             text_color=self.c("text", "#1E1B4B")
         ).grid(row=0, column=0, sticky="w")
@@ -450,7 +463,7 @@ class MicrobreaksView(ctk.CTkFrame):
 
         self.start_button = PrimaryButton(
             self.preview,
-            text="▶  Comenzar",
+            text=Lang.get("micro_start"),
             height=48,
             command=self.start_microbreak
         )
@@ -473,8 +486,8 @@ class MicrobreaksView(ctk.CTkFrame):
         self.update_preview()
 
     def refresh_category_buttons(self):
-        for category, button in self.category_buttons.items():
-            selected = category == self.selected_category
+        for key, button in self.category_buttons.items():
+            selected = key == self.selected_category
 
             button.configure(
                 fg_color=self.c("accent_soft", "#EDE9FE") if selected else self.c("card_bg", "#FFFFFF"),
@@ -501,14 +514,15 @@ class MicrobreaksView(ctk.CTkFrame):
             fg_color=item["color"]
         )
 
-        self.preview_title.configure(text=item["title"])
-        self.preview_duration.configure(text=f"◷ Duración {item['duration']} min")
-        self.preview_description.configure(text=item["description"])
+        self.preview_title.configure(text=Lang.get(f"micro_breaks_{item['lang_key']}"))
+        self.preview_duration.configure(text=Lang.get("micro_duration", min=item["duration"]))
+        self.preview_description.configure(text=Lang.get(f"micro_breaks_{item['lang_key']}_desc"))
 
         for widget in self.preview_benefits.winfo_children():
             widget.destroy()
 
-        for index, benefit in enumerate(item["benefits"]):
+        benefit_keys = item.get("benefit_keys", [])
+        for index, bk in enumerate(benefit_keys):
             badge = SoftCard(
                 self.preview_benefits,
                 fg_color=self.c("app_bg", "#F6F7FB"),
@@ -520,19 +534,19 @@ class MicrobreaksView(ctk.CTkFrame):
 
             SmallLabel(
                 badge,
-                benefit,
+                Lang.get(f"micro_benefits_{bk}"),
                 text_color=self.c("text_soft", "#6B7280")
             ).pack(padx=10, pady=12)
 
     # =====================================================
-    # RF-015: REALIZAR MICRODESCANSO
+    # REALIZAR MICRODESCANSO
     # =====================================================
 
     def start_microbreak(self):
         if not self.selected_break:
             messagebox.showwarning(
-                "Microdescanso",
-                "Selecciona un microdescanso antes de comenzar."
+                Lang.get("micro_warning_title"),
+                Lang.get("micro_warning_msg")
             )
             return
 
@@ -564,22 +578,26 @@ class MicrobreaksView(ctk.CTkFrame):
                 game_window.focus()
             except Exception as error:
                 messagebox.showerror(
-                    "No se pudo abrir el juego",
-                    f"Hubo un problema al iniciar el juego: {error}"
+                    Lang.get("micro_game_error"),
+                    Lang.get("micro_game_error_msg", error=error)
                 )
             return
 
         self.show_microbreak_steps(payload)
 
     def show_microbreak_steps(self, payload):
-        steps = "\n".join(
-            [f"{index + 1}. {step}" for index, step in enumerate(self.selected_break["steps"])]
-        )
+        steps_lines = []
+        for index, step in enumerate(self.selected_break["steps"]):
+            steps_lines.append(Lang.get("micro_steps_format", number=index + 1, step=step))
+        steps = "\n".join(steps_lines)
 
+        parts = [
+            Lang.get("micro_started"),
+            Lang.get("micro_duration_suggested", duration=payload["duration"]),
+            steps,
+            Lang.get("micro_saved"),
+        ]
         messagebox.showinfo(
             payload["title"],
-            f"Microdescanso iniciado.\n\n"
-            f"Duración sugerida: {payload['duration']} minutos.\n\n"
-            f"{steps}\n\n"
-            f"Registro guardado para el historial."
+            "\n\n".join(parts)
         )

@@ -5,6 +5,7 @@ from database.schema import create_tables
 from utils.app_state import AppState
 from utils.theme_manager import ThemeManager
 from utils.sound_player import SoundPlayer
+from utils.i18n import Lang
 
 from views.login_view import LoginView
 from views.home_view import HomeView
@@ -31,6 +32,7 @@ class SoftReliefApp(ctk.CTk):
 
         self.current_user = None
         self.login_theme = AppState.load_last_theme()
+        Lang.set(AppState.load_language())
 
         self.configure_app()
         self.initialize_database()

@@ -17,22 +17,31 @@ from components import (
 
 from utils.theme_manager import ThemeManager
 from utils.app_state import AppState
+from utils.i18n import Lang
+from controllers.wellbeing_controller import WellbeingController
 
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOGO_PATH = os.path.join(BASE_DIR, "assets", "logo.png")
 DARK_LOGO_PATH = os.path.join(BASE_DIR, "assets", "dark_logo.png")
 
+# Stable navigation keys
+NAV_HOME = "nav_home"
+NAV_CHECKIN = "nav_checkin"
+NAV_CALM_MODE = "nav_calm_mode"
+NAV_SOUNDS = "nav_sounds"
+NAV_MICROBREAKS = "nav_microbreaks"
+NAV_HISTORY = "nav_history"
+NAV_SETTINGS = "nav_settings"
+NAV_SUPERUSER = "nav_superuser"
+NAV_SPECIALIST = "nav_specialist"
+NAV_TRAJECTORY = "nav_trajectory"
+NAV_ASSIGN_RECOMMENDATION = "nav_assign_recommendation"
+NAV_MARK_FOLLOWUP = "nav_mark_followup"
+NAV_LOAD_RESOURCE = "nav_load_resource"
+
 
 class HomeView(ctk.CTkFrame):
-    """
-    HomeView principal de SoftRelief.
-
-    Control de acceso por rol:
-    - usuario: funciones de bienestar personal.
-    - especialista: seguimiento, recomendaciones y recursos.
-    - superuser: administración del sistema.
-    """
 
     def __init__(self, master, app):
         self.app = app
@@ -42,6 +51,8 @@ class HomeView(ctk.CTkFrame):
 
         self.safe_apply_theme()
         AppState.save_last_theme(self.theme_name)
+
+        Lang.set(AppState.load_language())
 
         super().__init__(
             master,
@@ -53,14 +64,12 @@ class HomeView(ctk.CTkFrame):
         self.content = None
         self.logo_image = None
         self.nav_buttons = {}
+        self.lang_frame = None
+        self.current_view_key = NAV_HOME
 
         self.pack(fill="both", expand=True)
         self.build_layout()
         self.show_default_view()
-
-    # =====================================================
-    # HELPERS
-    # =====================================================
 
     def c(self, key, default):
         return self.theme.get(key, default)
@@ -82,13 +91,10 @@ class HomeView(ctk.CTkFrame):
 
     def user_initials(self):
         parts = self.user_name().strip().split()
-
         if len(parts) >= 2:
             return f"{parts[0][0]}{parts[1][0]}".upper()
-
         if len(parts) == 1 and parts[0]:
             return parts[0][0].upper()
-
         return "U"
 
     def safe_apply_theme(self):
@@ -136,119 +142,70 @@ class HomeView(ctk.CTkFrame):
     def clear_content(self):
         if not self.content:
             return
-
         for widget in self.content.winfo_children():
             widget.destroy()
 
     def configure_content_grid(self):
         if not self.content:
             return
-
         for col in range(3):
             self.content.grid_columnconfigure(col, weight=1)
 
-    # =====================================================
-    # ACCESS CONTROL
-    # =====================================================
-
     def allowed_views(self):
         role = self.user_role()
-
         if role == "superuser":
-            return {
-                "Panel superuser",
-                "Configuración",
-            }
-
+            return {NAV_SUPERUSER, NAV_SETTINGS}
         if role == "especialista":
-            return {
-                "Panel especialista",
-                "Trayectoria",
-                "Asignar recomendación",
-                "Marcar seguimiento",
-                "Cargar recurso",
-                "Configuración",
-            }
+            return {NAV_SPECIALIST, NAV_TRAJECTORY, NAV_ASSIGN_RECOMMENDATION,
+                    NAV_MARK_FOLLOWUP, NAV_LOAD_RESOURCE, NAV_SETTINGS}
+        return {NAV_HOME, NAV_CHECKIN, NAV_CALM_MODE, NAV_SOUNDS,
+                NAV_MICROBREAKS, NAV_HISTORY, NAV_SETTINGS}
 
-        return {
-            "Inicio",
-            "Check-in",
-            "Modo Calma",
-            "Sonidos",
-            "Microdescansos",
-            "Historial",
-            "Configuración",
-        }
-
-    def can_open(self, view_name):
-        return view_name in self.allowed_views()
+    def can_open(self, key):
+        return key in self.allowed_views()
 
     def get_role_menu(self):
         role = self.user_role()
-
         if role == "superuser":
             return [
-                ("Panel superuser", "◆", lambda: self.open_view(
-                    "Panel superuser",
-                    "views.superuser_view",
-                    "SuperuserView"
+                (NAV_SUPERUSER, "\u25c6", lambda: self.open_view(
+                    NAV_SUPERUSER, "views.superuser_view", "SuperuserView"
                 )),
-                ("Configuración", "⚙", lambda: self.open_view(
-                    "Configuración",
-                    "views.settings_view",
-                    "SettingsView"
+                (NAV_SETTINGS, "\u2699", lambda: self.open_view(
+                    NAV_SETTINGS, "views.settings_view", "SettingsView"
                 )),
             ]
-
         if role == "especialista":
             return [
-                ("Panel especialista", "✚", lambda: self.open_view(
-                    "Panel especialista",
-                    "views.specialist_view",
-                    "SpecialistView"
+                (NAV_SPECIALIST, "\u271a", lambda: self.open_view(
+                    NAV_SPECIALIST, "views.specialist_view", "SpecialistView"
                 )),
-                ("Configuración", "⚙", lambda: self.open_view(
-                    "Configuración",
-                    "views.settings_view",
-                    "SettingsView"
+                (NAV_SETTINGS, "\u2699", lambda: self.open_view(
+                    NAV_SETTINGS, "views.settings_view", "SettingsView"
                 )),
             ]
-
         return [
-            ("Inicio", "⌂", self.show_home_content),
-            ("Check-in", "♡", lambda: self.open_view(
-                "Check-in",
-                "views.checkin_view",
-                "CheckinView"
+            (NAV_HOME, "\u2302", self.show_home_content),
+            (NAV_CHECKIN, "\u2661", lambda: self.open_view(
+                NAV_CHECKIN, "views.checkin_view", "CheckinView"
             )),
-            ("Modo Calma", "☾", self.show_calm_mode),
-            ("Sonidos", "♫", self.show_sounds),
-            ("Microdescansos", "☕", lambda: self.open_view(
-                "Microdescansos",
-                "views.microbreaks_view",
-                "MicrobreaksView"
+            (NAV_CALM_MODE, "\u263e", self.show_calm_mode),
+            (NAV_SOUNDS, "\u266b", self.show_sounds),
+            (NAV_MICROBREAKS, "\u2615", lambda: self.open_view(
+                NAV_MICROBREAKS, "views.microbreaks_view", "MicrobreaksView"
             )),
-            ("Historial", "◔", lambda: self.open_view(
-                "Historial",
-                "views.history_view",
-                "HistoryView"
+            (NAV_HISTORY, "\u25d4", lambda: self.open_view(
+                NAV_HISTORY, "views.history_view", "HistoryView"
             )),
-            ("Configuración", "⚙", lambda: self.open_view(
-                "Configuración",
-                "views.settings_view",
-                "SettingsView"
+            (NAV_SETTINGS, "\u2699", lambda: self.open_view(
+                NAV_SETTINGS, "views.settings_view", "SettingsView"
             )),
         ]
-
-    # =====================================================
-    # LAYOUT
-    # =====================================================
 
     def build_layout(self):
         self.grid_columnconfigure(0, weight=0)
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
-
         self.build_sidebar()
         self.build_content_area()
 
@@ -267,6 +224,7 @@ class HomeView(ctk.CTkFrame):
         self.sidebar_header()
         self.sidebar_nav()
         self.sidebar_user_card()
+        self.sidebar_language_selector()
 
     def build_content_area(self):
         self.content = ctk.CTkScrollableFrame(
@@ -279,10 +237,6 @@ class HomeView(ctk.CTkFrame):
         self.content.grid(row=0, column=1, sticky="nsew")
         self.configure_content_grid()
 
-    # =====================================================
-    # SIDEBAR
-    # =====================================================
-
     def sidebar_header(self):
         box = self.frame(self.sidebar)
         box.grid(row=0, column=0, sticky="ew", padx=22, pady=(26, 18))
@@ -294,7 +248,7 @@ class HomeView(ctk.CTkFrame):
         else:
             ctk.CTkLabel(
                 box,
-                text="✦",
+                text="\u2726",
                 width=78,
                 height=78,
                 corner_radius=39,
@@ -312,22 +266,19 @@ class HomeView(ctk.CTkFrame):
 
         SmallLabel(
             box,
-            "Bienestar digital al alcance",
+            Lang.get("sidebar_digital_wellness"),
             text_color=self.c("text_soft", "#7E86A3")
         ).pack(anchor="center")
 
     def load_logo(self):
         candidates = []
-
         if self.theme_name == "dark":
             candidates.append(DARK_LOGO_PATH)
-
         candidates.extend([
             LOGO_PATH,
             os.path.join(BASE_DIR, "assets", "logo.jpg"),
             os.path.join(BASE_DIR, "assets", "logo.jpeg"),
         ])
-
         for path in candidates:
             if os.path.exists(path):
                 image = Image.open(path)
@@ -337,15 +288,16 @@ class HomeView(ctk.CTkFrame):
                     size=(115, 115)
                 )
                 return self.logo_image
-
         return None
 
     def sidebar_nav(self):
         nav = self.frame(self.sidebar)
         nav.grid(row=1, column=0, sticky="new", padx=18, pady=(4, 0))
         nav.grid_columnconfigure(0, weight=1)
+        self.nav_buttons = {}
 
-        for row, (text, icon, command) in enumerate(self.get_role_menu()):
+        for row, (key, icon, command) in enumerate(self.get_role_menu()):
+            text = Lang.get(key)
             button = SidebarButton(
                 nav,
                 text=f"{icon}   {text}",
@@ -355,11 +307,11 @@ class HomeView(ctk.CTkFrame):
                 text_color=self.c("text", "#30384F")
             )
             button.grid(row=row, column=0, sticky="ew", pady=4)
-            self.nav_buttons[text] = button
+            self.nav_buttons[key] = button
 
     def sidebar_user_card(self):
         box = self.frame(self.sidebar)
-        box.grid(row=2, column=0, sticky="sew", padx=18, pady=(18, 24))
+        box.grid(row=2, column=0, sticky="sew", padx=18, pady=(18, 8))
 
         card = self.card(box, radius=18, bg=self.c("user_card", "#F7F7F7"))
         card.pack(fill="x")
@@ -389,50 +341,123 @@ class HomeView(ctk.CTkFrame):
             text_color=self.c("text_soft", "#7E86A3")
         ).grid(row=1, column=1, sticky="w", pady=(0, 14))
 
-    def set_active(self, active_text):
-        for text, button in self.nav_buttons.items():
-            selected = text == active_text
+    def sidebar_language_selector(self):
+        self.lang_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+        self.lang_frame.grid(row=3, column=0, sticky="ew", padx=18, pady=(4, 24))
 
+        SmallLabel(
+            self.lang_frame,
+            Lang.get("sidebar_language"),
+            text_color=self.c("text_soft", "#7E86A3")
+        ).pack(anchor="center", pady=(0, 6))
+
+        lang_box = self.frame(self.lang_frame)
+        lang_box.pack(anchor="center")
+
+        current = Lang.current()
+        btn_es = ctk.CTkButton(
+            lang_box,
+            text=Lang.get("language_es"),
+            width=40,
+            height=28,
+            corner_radius=8,
+            font=("Segoe UI", 11, "bold"),
+            fg_color=self.c("accent") if current == "es" else self.c("card_bg"),
+            hover_color=self.c("button_hover"),
+            text_color="#FFFFFF" if current == "es" else self.c("text"),
+            border_width=1,
+            border_color=self.c("accent"),
+            command=lambda: self.set_language("es")
+        )
+        btn_es.pack(side="left", padx=(0, 4))
+
+        btn_en = ctk.CTkButton(
+            lang_box,
+            text=Lang.get("language_en"),
+            width=40,
+            height=28,
+            corner_radius=8,
+            font=("Segoe UI", 11, "bold"),
+            fg_color=self.c("accent") if current == "en" else self.c("card_bg"),
+            hover_color=self.c("button_hover"),
+            text_color="#FFFFFF" if current == "en" else self.c("text"),
+            border_width=1,
+            border_color=self.c("accent"),
+            command=lambda: self.set_language("en")
+        )
+        btn_en.pack(side="left")
+
+    def set_language(self, lang):
+        Lang.set(lang)
+        AppState.save_language(lang)
+        self.rebuild_sidebar()
+        self.reload_current_view()
+
+    def rebuild_sidebar(self):
+        if self.sidebar:
+            for widget in self.sidebar.winfo_children():
+                widget.destroy()
+        self.sidebar_header()
+        self.sidebar_nav()
+        self.sidebar_user_card()
+        self.sidebar_language_selector()
+
+    def reload_current_view(self):
+        key = self.current_view_key
+        menu_map = {
+            NAV_HOME: ("show_home_content", None, None),
+            NAV_CALM_MODE: ("show_calm_mode", None, None),
+            NAV_SOUNDS: ("show_sounds", None, None),
+            NAV_CHECKIN: ("open_view", "views.checkin_view", "CheckinView"),
+            NAV_MICROBREAKS: ("open_view", "views.microbreaks_view", "MicrobreaksView"),
+            NAV_HISTORY: ("open_view", "views.history_view", "HistoryView"),
+            NAV_SETTINGS: ("open_view", "views.settings_view", "SettingsView"),
+            NAV_SUPERUSER: ("open_view", "views.superuser_view", "SuperuserView"),
+            NAV_SPECIALIST: ("open_view", "views.specialist_view", "SpecialistView"),
+            NAV_TRAJECTORY: ("open_view", "views.specialist_view", "SpecialistView"),
+            NAV_ASSIGN_RECOMMENDATION: ("open_view", "views.specialist_view", "SpecialistView"),
+            NAV_MARK_FOLLOWUP: ("open_view", "views.specialist_view", "SpecialistView"),
+            NAV_LOAD_RESOURCE: ("open_view", "views.specialist_view", "SpecialistView"),
+        }
+        action, module, cls = menu_map.get(key, ("show_home_content", None, None))
+        if action == "show_home_content":
+            self.show_home_content()
+        elif action == "show_calm_mode":
+            self.show_calm_mode()
+        elif action == "show_sounds":
+            self.show_sounds()
+        elif action == "open_view" and module and cls:
+            self.open_view(key, module, cls)
+
+    def set_active(self, active_key):
+        for key, button in self.nav_buttons.items():
+            selected = key == active_key
             button.configure(
                 fg_color=self.c("accent_soft", "#F4F1FF") if selected else "transparent",
                 text_color=self.c("accent", "#7462D4") if selected else self.c("text", "#30384F"),
                 hover_color=self.c("menu_hover", "#F0F0F0")
             )
 
-    # =====================================================
-    # NAVIGATION
-    # =====================================================
-
     def show_default_view(self):
         role = self.user_role()
-
         if role == "superuser":
-            self.open_view(
-                "Panel superuser",
-                "views.superuser_view",
-                "SuperuserView"
-            )
+            self.open_view(NAV_SUPERUSER, "views.superuser_view", "SuperuserView")
             return
-
         if role == "especialista":
-            self.open_view(
-                "Panel especialista",
-                "views.specialist_view",
-                "SpecialistView"
-            )
+            self.open_view(NAV_SPECIALIST, "views.specialist_view", "SpecialistView")
             return
-
         self.show_home_content()
 
-    def open_view(self, nav_name, module_path, class_name):
-        if not self.can_open(nav_name):
+    def open_view(self, key, module_path, class_name):
+        if not self.can_open(key):
             self.error_view(
-                "Acceso no permitido",
-                "Tu rol no tiene permisos para acceder a esta sección."
+                Lang.get("specialist_access_denied"),
+                Lang.get("specialist_access_denied_msg")
             )
             return
 
-        self.set_active(nav_name)
+        self.current_view_key = key
+        self.set_active(key)
         self.clear_content()
         self.configure_content_grid()
 
@@ -463,41 +488,36 @@ class HomeView(ctk.CTkFrame):
                 )
 
         except Exception as error:
-            self.error_view("No se pudo abrir la vista", str(error))
+            self.error_view(Lang.get("specialist_access_denied"), str(error))
 
     def show_calm_mode(self):
-        if not self.can_open("Modo Calma"):
+        if not self.can_open(NAV_CALM_MODE):
             self.error_view(
-                "Acceso no permitido",
-                "Tu rol no tiene permisos para acceder a esta sección."
+                Lang.get("specialist_access_denied"),
+                Lang.get("specialist_access_denied_msg")
             )
             return
-
-        self.open_view("Modo Calma", "views.calm_mode_view", "CalmModeView")
+        self.open_view(NAV_CALM_MODE, "views.calm_mode_view", "CalmModeView")
 
     def show_sounds(self):
-        if not self.can_open("Sonidos"):
+        if not self.can_open(NAV_SOUNDS):
             self.error_view(
-                "Acceso no permitido",
-                "Tu rol no tiene permisos para acceder a esta sección."
+                Lang.get("specialist_access_denied"),
+                Lang.get("specialist_access_denied_msg")
             )
             return
-
-        self.open_view("Sonidos", "views.sounds_view", "SoundsView")
-
-    # =====================================================
-    # HOME USUARIO NORMAL
-    # =====================================================
+        self.open_view(NAV_SOUNDS, "views.sounds_view", "SoundsView")
 
     def show_home_content(self):
-        if not self.can_open("Inicio"):
+        if not self.can_open(NAV_HOME):
             self.error_view(
-                "Acceso no permitido",
-                "Tu rol no tiene permisos para acceder a esta sección."
+                Lang.get("specialist_access_denied"),
+                Lang.get("specialist_access_denied_msg")
             )
             return
 
-        self.set_active("Inicio")
+        self.current_view_key = NAV_HOME
+        self.set_active(NAV_HOME)
         self.clear_content()
         self.configure_content_grid()
 
@@ -509,41 +529,34 @@ class HomeView(ctk.CTkFrame):
         self.home_recomendacion_especialista()
 
     def last_checkin(self):
+        latest = WellbeingController.get_latest_checkin(self.current_user)
+        if latest:
+            return latest
         if self.app and getattr(self.app, "last_checkin", None):
             return self.app.last_checkin
-
         if self.current_user and self.current_user.get("ultimo_checkin"):
             return self.current_user["ultimo_checkin"]
-
         return {}
 
     def obtener_recomendacion_especialista(self):
         if not self.current_user:
             return None
-
         id_usuario = self.current_user.get("id_usuario")
-
         if not id_usuario:
             return None
-
         try:
             from models.user_model import UserModel
             return UserModel.get_latest_recommendation_for_user(id_usuario)
-
         except Exception:
             return None
 
     def limpiar_texto_recomendacion(self, descripcion):
         if not descripcion:
-            return "No hay detalle disponible."
-
+            return Lang.get("home_no_detail")
         texto = str(descripcion)
-
         texto = texto.replace("RECOMENDACION", "")
-        texto = texto.replace("Título:", "Título:")
+        texto = texto.replace("T\u00edtulo:", "T\u00edtulo:")
         texto = texto.replace("Detalle:", "\nDetalle:")
-        texto = texto.replace("Mongo ID:", "\nReferencia Mongo:")
-
         return texto.strip()
 
     def home_recomendacion_especialista(self):
@@ -551,17 +564,12 @@ class HomeView(ctk.CTkFrame):
 
         card = self.card(self.content)
         card.grid(
-            row=4,
-            column=0,
-            columnspan=3,
-            sticky="ew",
-            padx=30,
-            pady=(0, 28)
+            row=4, column=0, columnspan=3, sticky="ew", padx=30, pady=(0, 28)
         )
 
         TitleLabel(
             card,
-            "Recomendación del especialista",
+            Lang.get("home_specialist_recommendation"),
             size=22,
             text_color=self.c("text", "#30384F")
         ).pack(anchor="w", padx=24, pady=(22, 8))
@@ -569,7 +577,7 @@ class HomeView(ctk.CTkFrame):
         if not recomendacion:
             BodyLabel(
                 card,
-                "Aún no tienes recomendaciones asignadas por un especialista.",
+                Lang.get("home_no_recommendations"),
                 size=14,
                 text_color=self.c("text_soft", "#7E86A3"),
                 wraplength=820
@@ -582,7 +590,7 @@ class HomeView(ctk.CTkFrame):
 
         SmallLabel(
             card,
-            f"Asignada por: {especialista} · {fecha}",
+            Lang.get("home_assigned_by", especialista=especialista, fecha=fecha),
             size=12,
             text_color=self.c("text_soft", "#7E86A3")
         ).pack(anchor="w", padx=24, pady=(0, 8))
@@ -605,21 +613,21 @@ class HomeView(ctk.CTkFrame):
 
         TitleLabel(
             left,
-            f"Hola, {self.user_name()}",
+            Lang.get("home_hello", name=self.user_name()),
             size=32,
             text_color=self.c("text", "#30384F")
         ).pack(anchor="w")
 
         SubtitleLabel(
             left,
-            "Bienvenido de nuevo a tu espacio de bienestar digital.",
+            Lang.get("home_welcome"),
             size=15,
             text_color=self.c("text_soft", "#7E86A3")
         ).pack(anchor="w", pady=(3, 0))
 
         self.secondary_button(
             card,
-            "Cerrar sesión",
+            Lang.get("home_logout"),
             command=self.logout
         ).grid(row=0, column=1, sticky="e", padx=26, pady=24)
 
@@ -632,11 +640,15 @@ class HomeView(ctk.CTkFrame):
         for col in range(4):
             stats.grid_columnconfigure(col, weight=1)
 
+        metricas = data.get("resumen_metricas", {})
+        estres_val = metricas.get("estres", data.get("estres", "-"))
+        energia_val = metricas.get("energia", data.get("energia", "-"))
+
         items = [
-            ("Estrés", f"{data.get('stress', '-')}/10"),
-            ("Energía", f"{data.get('energy', '-')}/10"),
-            ("Estado", data.get("mood", "Sin registro")),
-            ("Recomendación", data.get("recommendation_title", "Pendiente")),
+            (Lang.get("home_stress"), f"{estres_val}/10"),
+            (Lang.get("home_energy"), f"{energia_val}/10"),
+            (Lang.get("home_status"), data.get("estado_animo_general") or data.get("estado_animo") or data.get("mood", Lang.get("home_no_record"))),
+            (Lang.get("home_recommendation"), data.get("recomendacion_automatica", {}).get("titulo", Lang.get("home_pending"))),
         ]
 
         for col, (title, value) in enumerate(items):
@@ -665,7 +677,7 @@ class HomeView(ctk.CTkFrame):
 
         TitleLabel(
             card,
-            "Acciones rápidas",
+            Lang.get("home_quick_actions"),
             size=22,
             text_color=self.c("text", "#30384F")
         ).pack(anchor="w", padx=24, pady=(22, 10))
@@ -677,16 +689,12 @@ class HomeView(ctk.CTkFrame):
             box.grid_columnconfigure(col, weight=1)
 
         actions = [
-            ("Check-in", "Registra cómo te sientes hoy.", lambda: self.open_view(
-                "Check-in",
-                "views.checkin_view",
-                "CheckinView"
+            (Lang.get("nav_checkin"), Lang.get("home_checkin_register"), lambda: self.open_view(
+                NAV_CHECKIN, "views.checkin_view", "CheckinView"
             )),
-            ("Modo Calma", "Pausa guiada para recuperar equilibrio.", self.show_calm_mode),
-            ("Microdescanso", "Actividad breve de baja carga cognitiva.", lambda: self.open_view(
-                "Microdescansos",
-                "views.microbreaks_view",
-                "MicrobreaksView"
+            (Lang.get("nav_calm_mode"), Lang.get("home_calm_mode_desc"), self.show_calm_mode),
+            (Lang.get("nav_microbreaks"), Lang.get("home_microbreak_desc"), lambda: self.open_view(
+                NAV_MICROBREAKS, "views.microbreaks_view", "MicrobreaksView"
             )),
         ]
 
@@ -712,27 +720,29 @@ class HomeView(ctk.CTkFrame):
 
         self.primary_button(
             card,
-            "Abrir",
+            Lang.get("home_open"),
             height=34,
             command=command
         ).pack(fill="x", padx=18, pady=(0, 18))
 
     def home_phrase(self):
         data = self.last_checkin()
-
-        phrase = data.get("phrase")
-
+        phrase = data.get("frase") or data.get("phrase")
+        if not phrase:
+            for r in data.get("respuestas", []):
+                if r.get("tipo") == "texto" and r.get("valor"):
+                    phrase = r["valor"]
+                    break
         if not phrase and self.current_user:
             phrase = self.current_user.get("frase_hoy")
-
-        phrase = phrase or "Hoy es un buen día para cuidar de ti."
+        phrase = phrase or Lang.get("home_default_phrase")
 
         card = self.card(self.content)
         card.grid(row=2, column=2, sticky="nsew", padx=(12, 30), pady=(0, 18))
 
         TitleLabel(
             card,
-            "Frase para hoy",
+            Lang.get("home_phrase_today"),
             size=20,
             text_color=self.c("text", "#30384F")
         ).pack(anchor="w", padx=24, pady=(22, 8))
@@ -753,15 +763,16 @@ class HomeView(ctk.CTkFrame):
 
         TitleLabel(
             card,
-            "Actividad reciente",
+            Lang.get("home_recent_activity"),
             size=22,
             text_color=self.c("text", "#30384F")
         ).pack(anchor="w", padx=24, pady=(22, 12))
 
+        rec = data.get("recomendacion_automatica", {})
         self.activity_row(
             card,
-            data.get("recommendation_title", "Sin actividad reciente"),
-            data.get("mood", "Realiza un check-in para comenzar.")
+            rec.get("titulo", Lang.get("home_no_recent_activity")),
+            data.get("estado_animo_general") or data.get("estado_animo") or data.get("mood", Lang.get("home_do_checkin"))
         )
 
     def activity_row(self, parent, title, detail):
@@ -771,7 +782,7 @@ class HomeView(ctk.CTkFrame):
 
         ctk.CTkLabel(
             row,
-            text="✓",
+            text="\u2713",
             width=36,
             height=36,
             corner_radius=18,
@@ -792,206 +803,6 @@ class HomeView(ctk.CTkFrame):
             detail,
             text_color=self.c("text_soft", "#7E86A3")
         ).grid(row=1, column=1, sticky="w", pady=(0, 12))
-
-    # =====================================================
-    # ESPECIALISTA
-    # =====================================================
-
-    def show_specialist_panel(self):
-        if not self.can_open("Panel especialista"):
-            self.error_view(
-                "Acceso no permitido",
-                "Tu rol no tiene permisos para acceder a esta sección."
-            )
-            return
-
-        self.set_active("Panel especialista")
-        self.clear_content()
-        self.configure_content_grid()
-
-        self.specialist_header()
-        self.specialist_modules()
-        self.specialist_side_panel()
-
-    def specialist_header(self):
-        card = self.card(self.content)
-        card.grid(row=0, column=0, columnspan=3, sticky="ew", padx=30, pady=(24, 18))
-        card.grid_columnconfigure(0, weight=1)
-
-        left = self.frame(card)
-        left.grid(row=0, column=0, sticky="w", padx=26, pady=24)
-
-        TitleLabel(
-            left,
-            "Panel especialista",
-            size=32,
-            text_color=self.c("text", "#30384F")
-        ).pack(anchor="w")
-
-        SubtitleLabel(
-            left,
-            "Seguimiento, recomendaciones y recursos de apoyo.",
-            size=15,
-            text_color=self.c("text_soft", "#7E86A3")
-        ).pack(anchor="w", pady=(3, 0))
-
-        self.secondary_button(
-            card,
-            "Cerrar sesión",
-            command=self.logout
-        ).grid(row=0, column=1, sticky="e", padx=26, pady=24)
-
-    def specialist_modules(self):
-        box = self.frame(self.content)
-        box.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=(30, 12), pady=(0, 26))
-
-        box.grid_columnconfigure(0, weight=1)
-        box.grid_columnconfigure(1, weight=1)
-
-        modules = [
-            ("Trayectoria", "Consultar evolución, historial emocional y actividad registrada.", "RF-005", "◔"),
-            ("Asignar recomendación", "Registrar una recomendación personalizada para un usuario.", "RF-020", "➕"),
-            ("Marcar seguimiento", "Indicar que un caso fue revisado o atendido.", "RF-021", "✓"),
-            ("Cargar recurso", "Agregar material de apoyo para el bienestar del usuario.", "RF-022", "⬆"),
-        ]
-
-        for index, data in enumerate(modules):
-            row = index // 2
-            col = index % 2
-            self.specialist_module_card(box, data, row, col)
-
-    def specialist_module_card(self, parent, data, row, col):
-        title, description, rf, icon = data
-
-        card = self.card(parent, radius=20)
-        card.grid(
-            row=row,
-            column=col,
-            sticky="nsew",
-            padx=(0, 12) if col == 0 else (12, 0),
-            pady=(0, 18)
-        )
-
-        ctk.CTkLabel(
-            card,
-            text=icon,
-            width=58,
-            height=58,
-            corner_radius=29,
-            fg_color=self.c("accent_soft", "#F4F1FF"),
-            text_color=self.c("accent", "#7462D4"),
-            font=("Arial", 28)
-        ).pack(anchor="w", padx=24, pady=(22, 12))
-
-        TitleLabel(
-            card,
-            title,
-            size=20,
-            text_color=self.c("text", "#30384F")
-        ).pack(anchor="w", padx=24, pady=(0, 6))
-
-        BodyLabel(
-            card,
-            description,
-            size=14,
-            text_color=self.c("text_soft", "#7E86A3"),
-            wraplength=300
-        ).pack(anchor="w", padx=24, pady=(0, 10))
-
-        SmallLabel(
-            card,
-            rf,
-            text_color=self.c("accent", "#7462D4")
-        ).pack(anchor="w", padx=24, pady=(0, 10))
-
-        self.primary_button(
-            card,
-            "Abrir módulo",
-            height=36,
-            command=lambda t=title, d=description: self.show_specialist_section(t, d)
-        ).pack(fill="x", padx=24, pady=(0, 22))
-
-    def specialist_side_panel(self):
-        side = self.frame(self.content)
-        side.grid(row=1, column=2, sticky="nsew", padx=(12, 30), pady=(0, 26))
-
-        summary = self.card(side)
-        summary.pack(fill="x", pady=(0, 18))
-
-        TitleLabel(
-            summary,
-            "Resumen del rol",
-            size=22,
-            text_color=self.c("text", "#30384F")
-        ).pack(anchor="w", padx=24, pady=(22, 8))
-
-        BodyLabel(
-            summary,
-            "El especialista no utiliza las funciones de bienestar como usuario final. Su función es dar seguimiento, asignar recomendaciones y gestionar recursos de apoyo.",
-            size=14,
-            text_color=self.c("text_soft", "#7E86A3"),
-            wraplength=310
-        ).pack(anchor="w", padx=24, pady=(0, 22))
-
-        notice = self.card(side)
-        notice.pack(fill="x")
-
-        TitleLabel(
-            notice,
-            "Acceso controlado",
-            size=20,
-            text_color=self.c("text", "#30384F")
-        ).pack(anchor="w", padx=24, pady=(22, 8))
-
-        BodyLabel(
-            notice,
-            "Este panel está limitado a funciones de asesoría y seguimiento conforme a los requerimientos funcionales del sistema.",
-            size=14,
-            text_color=self.c("text_soft", "#7E86A3"),
-            wraplength=310
-        ).pack(anchor="w", padx=24, pady=(0, 22))
-
-    def show_specialist_section(self, title, description):
-        if not self.can_open(title):
-            self.error_view(
-                "Acceso no permitido",
-                "Tu rol no tiene permisos para acceder a esta sección."
-            )
-            return
-
-        self.set_active(title)
-        self.clear_content()
-        self.configure_content_grid()
-
-        card = self.card(self.content)
-        card.grid(row=0, column=0, columnspan=3, sticky="ew", padx=30, pady=(24, 18))
-
-        TitleLabel(
-            card,
-            title,
-            size=32,
-            text_color=self.c("text", "#30384F")
-        ).pack(anchor="w", padx=26, pady=(24, 8))
-
-        BodyLabel(
-            card,
-            description,
-            size=15,
-            text_color=self.c("text_soft", "#7E86A3"),
-            wraplength=820
-        ).pack(anchor="w", padx=26, pady=(0, 16))
-
-        BodyLabel(
-            card,
-            "Módulo en desarrollo. Esta sección corresponde a las funciones definidas para el rol especialista.",
-            size=14,
-            text_color=self.c("text_soft", "#7E86A3"),
-            wraplength=820
-        ).pack(anchor="w", padx=26, pady=(0, 24))
-
-    # =====================================================
-    # ERRORS / SESSION
-    # =====================================================
 
     def error_view(self, title, detail):
         self.clear_content()

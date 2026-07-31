@@ -20,37 +20,32 @@ from utils.music_state import (
     toggle_favorite_track,
 )
 from utils.sound_player import SoundPlayer
+from utils.i18n import Lang
 
 
 class SoundsView(ctk.CTkFrame):
-    """
-    Vista de sonidos ambientales.
 
-    Funciones:
-    - Reproducir sonidos ambientales.
-    - Elegir música para Modo Calma.
-    - Elegir Background Sound en loop suave.
-    - Ver recomendaciones musicales del especialista.
-    - Marcar favoritos.
-    """
+    @staticmethod
+    def get_filter_labels():
+        return {
+            "todos": Lang.get("sounds_filter_todos"),
+            "concentracion": Lang.get("sounds_filter_concentracion"),
+            "relajacion": Lang.get("sounds_filter_relajacion"),
+            "sueno": Lang.get("sounds_filter_sueno"),
+            "favoritos": Lang.get("sounds_filter_favoritos"),
+            "sugeridos": Lang.get("sounds_filter_sugeridos"),
+        }
 
-    FILTER_LABELS = {
-        "todos": "Todos",
-        "concentracion": "Concentración",
-        "relajacion": "Relajación",
-        "sueno": "Sueño",
-        "favoritos": "Favoritos",
-        "sugeridos": "Sugeridos",
-    }
-
-    FILTER_VALUES = [
-        "Todos",
-        "Concentración",
-        "Relajación",
-        "Sueño",
-        "Favoritos",
-        "Sugeridos",
-    ]
+    @staticmethod
+    def get_filter_values():
+        return [
+            Lang.get("sounds_filter_todos"),
+            Lang.get("sounds_filter_concentracion"),
+            Lang.get("sounds_filter_relajacion"),
+            Lang.get("sounds_filter_sueno"),
+            Lang.get("sounds_filter_favoritos"),
+            Lang.get("sounds_filter_sugeridos"),
+        ]
 
     def __init__(self, master, app):
         self.app = app
@@ -86,7 +81,7 @@ class SoundsView(ctk.CTkFrame):
         self.search_var = ctk.StringVar()
         self.search_var.trace_add("write", self.apply_filters)
 
-        self.filter_var = ctk.StringVar(value="Todos")
+        self.filter_var = ctk.StringVar(value=Lang.get("sounds_filter_todos"))
         self.volume_var = ctk.DoubleVar(
             value=SoundPlayer.get_status().get("volume", 0.65)
         )
@@ -148,7 +143,7 @@ class SoundsView(ctk.CTkFrame):
     def get_filter_id_from_label(self, label):
         label = str(label).lower()
 
-        for filter_id, filter_label in self.FILTER_LABELS.items():
+        for filter_id, filter_label in self.get_filter_labels().items():
             if filter_label.lower() == label:
                 return filter_id
 
@@ -199,14 +194,14 @@ class SoundsView(ctk.CTkFrame):
 
         TitleLabel(
             title_box,
-            "Sonidos ambientales",
+            Lang.get("sounds_title"),
             size=34,
             text_color=self.c("text", "#1E1B4B")
         ).pack(anchor="w")
 
         SubtitleLabel(
             title_box,
-            "Elige un ambiente para concentrarte o relajarte",
+            Lang.get("sounds_subtitle"),
             size=16,
             text_color=self.c("text_soft", "#6B7280")
         ).pack(anchor="w", pady=(2, 0))
@@ -216,14 +211,14 @@ class SoundsView(ctk.CTkFrame):
 
         SmallLabel(
             user_box,
-            f"Hola, {self.user_name()}",
+            Lang.get("sounds_hello", name=self.user_name()),
             size=14,
             text_color=self.c("text", "#1E1B4B")
         ).pack(anchor="e")
 
         SmallLabel(
             user_box,
-            "Todo en equilibrio",
+            Lang.get("sounds_balance"),
             size=12,
             text_color=self.c("text_soft", "#6B7280")
         ).pack(anchor="e")
@@ -250,7 +245,7 @@ class SoundsView(ctk.CTkFrame):
 
         segmented = ctk.CTkSegmentedButton(
             toolbar,
-            values=self.FILTER_VALUES,
+            values=self.get_filter_values(),
             variable=self.filter_var,
             height=36,
             corner_radius=14,
@@ -274,7 +269,7 @@ class SoundsView(ctk.CTkFrame):
             textvariable=self.search_var,
             height=36,
             corner_radius=14,
-            placeholder_text="Buscar sonidos...",
+            placeholder_text=Lang.get("sounds_search_placeholder"),
             fg_color=self.c("app_bg", "#F6F7FB"),
             border_color=self.c("card_border", "#E5E7EB"),
             text_color=self.c("text", "#1E1B4B")
@@ -289,7 +284,7 @@ class SoundsView(ctk.CTkFrame):
 
         SecondaryButton(
             toolbar,
-            text="Ordenar",
+            text=Lang.get("sounds_sort"),
             width=100,
             height=36,
             fg_color=self.c("app_bg", "#F6F7FB"),
@@ -385,7 +380,7 @@ class SoundsView(ctk.CTkFrame):
 
         TitleLabel(
             card,
-            "Recomendación",
+            Lang.get("sounds_recommendation"),
             size=20,
             text_color="#78350F"
         ).grid(
@@ -400,7 +395,7 @@ class SoundsView(ctk.CTkFrame):
 
         BodyLabel(
             card,
-            f"Tu especialista recomendó: {track['title']}. {track['description']}",
+            Lang.get("sounds_recommendation_text", title=track['title'], description=track['description']),
             size=13,
             text_color="#92400E",
             wraplength=640
@@ -413,7 +408,7 @@ class SoundsView(ctk.CTkFrame):
 
         PrimaryButton(
             card,
-            text="Seleccionar",
+            text=Lang.get("sounds_select"),
             width=130,
             height=36,
             command=lambda t=track: self.select_track(t)
@@ -459,7 +454,7 @@ class SoundsView(ctk.CTkFrame):
 
         TitleLabel(
             self.control_card,
-            "Control de música",
+            Lang.get("sounds_control_title"),
             size=24,
             text_color=self.c("text", "#1E1B4B")
         ).grid(
@@ -488,7 +483,7 @@ class SoundsView(ctk.CTkFrame):
 
         self.player_title = TitleLabel(
             self.control_card,
-            "Sin sonido seleccionado",
+            Lang.get("sounds_no_sound_selected"),
             size=20,
             text_color=self.c("text", "#1E1B4B")
         )
@@ -502,7 +497,7 @@ class SoundsView(ctk.CTkFrame):
 
         self.player_subtitle = BodyLabel(
             self.control_card,
-            "Selecciona una canción del catálogo para reproducirla, usarla en Modo Calma o dejarla como fondo.",
+            Lang.get("sounds_select_hint"),
             size=13,
             text_color=self.c("text_soft", "#6B7280"),
             wraplength=280,
@@ -547,7 +542,7 @@ class SoundsView(ctk.CTkFrame):
 
         PrimaryButton(
             self.control_card,
-            text="Usar como fondo",
+            text=Lang.get("sounds_use_background"),
             height=38,
             command=self.set_selected_as_background
         ).grid(
@@ -560,7 +555,7 @@ class SoundsView(ctk.CTkFrame):
 
         SecondaryButton(
             self.control_card,
-            text="Usar en Modo Calma",
+            text=Lang.get("sounds_use_calm_mode"),
             height=38,
             fg_color=self.c("app_bg", "#F6F7FB"),
             hover_color=self.c("menu_hover", "#F3F4F6"),
@@ -588,7 +583,7 @@ class SoundsView(ctk.CTkFrame):
 
         SmallLabel(
             volume_box,
-            "Volumen",
+            Lang.get("sounds_volume"),
             size=12,
             text_color=self.c("text_soft", "#6B7280")
         ).grid(
@@ -686,7 +681,7 @@ class SoundsView(ctk.CTkFrame):
             key=lambda track: track.get("title", "")
         )
         self.apply_filters()
-        self.show_message("Sonidos ordenados por nombre.")
+        self.show_message(Lang.get("sounds_sorted"))
 
     def apply_filters(self, *args):
         query = self.search_var.get().strip().lower()
@@ -747,7 +742,7 @@ class SoundsView(ctk.CTkFrame):
         if not self.filtered_tracks:
             BodyLabel(
                 self.track_grid,
-                "No se encontraron sonidos con ese filtro.",
+                Lang.get("sounds_no_results"),
                 size=14,
                 text_color=self.c("text_soft", "#6B7280")
             ).grid(
@@ -857,7 +852,7 @@ class SoundsView(ctk.CTkFrame):
 
         BodyLabel(
             text_box,
-            track.get("description", "Sonido ambiental."),
+            track.get("description", Lang.get("sounds_ambient")),
             size=12,
             text_color=self.c("text_soft", "#6B7280"),
             wraplength=240
@@ -895,7 +890,7 @@ class SoundsView(ctk.CTkFrame):
 
         SecondaryButton(
             action_row,
-            text="Seleccionar",
+            text=Lang.get("sounds_select"),
             height=34,
             fg_color=self.c("accent_soft", "#EDE9FE")
             if is_selected
@@ -921,18 +916,18 @@ class SoundsView(ctk.CTkFrame):
         badges = []
 
         if is_suggested:
-            badges.append("Recomendación")
+            badges.append(Lang.get("sounds_badge_recommendation"))
 
         if is_calm:
-            badges.append("Modo Calma")
+            badges.append(Lang.get("sounds_badge_calm_mode"))
 
         if is_background:
-            badges.append("Fondo")
+            badges.append(Lang.get("sounds_badge_background"))
 
         if badges:
             return " · ".join(badges)
 
-        return track.get("duration", "30 min")
+        return track.get("duration", Lang.get("sounds_duration"))
 
     def get_cover_color(self, track):
         category = track.get("category")
@@ -951,9 +946,9 @@ class SoundsView(ctk.CTkFrame):
 
     def select_track(self, track):
         self.selected_track = track
-        self.update_player(track, "Seleccionado")
+        self.update_player(track, Lang.get("sounds_selected"))
         self.draw_tracks()
-        self.show_message(f"Seleccionado: {track['title']}")
+        self.show_message(Lang.get("sounds_selected_track", title=track['title']))
 
     def update_player(self, track, status):
         if self.player_icon:
@@ -971,15 +966,15 @@ class SoundsView(ctk.CTkFrame):
         result = SoundPlayer.play_preview(track["file"])
 
         if result["success"]:
-            self.update_player(track, "Vista previa")
+            self.update_player(track, Lang.get("sounds_preview"))
             self.draw_tracks()
-            self.show_message(f"Reproduciendo: {track['title']}")
+            self.show_message(Lang.get("sounds_playing", title=track['title']))
         else:
             self.show_message(result["message"], error=True)
 
     def play_selected_preview(self):
         if not self.selected_track:
-            self.show_message("Selecciona primero un sonido.", error=True)
+            self.show_message(Lang.get("sounds_select_first"), error=True)
             return
 
         self.play_preview(self.selected_track)
@@ -1001,11 +996,11 @@ class SoundsView(ctk.CTkFrame):
 
     def set_selected_as_calm_mode(self):
         if not self.selected_track:
-            self.show_message("Selecciona primero un sonido.", error=True)
+            self.show_message(Lang.get("sounds_select_first"), error=True)
             return
 
         if not self.user_id():
-            self.show_message("No hay usuario activo.", error=True)
+            self.show_message(Lang.get("sounds_no_user"), error=True)
             return
 
         result = update_user_music_setting(
@@ -1016,7 +1011,7 @@ class SoundsView(ctk.CTkFrame):
 
         if result["success"]:
             self.show_message(
-                f"{self.selected_track['title']} se usará en Modo Calma."
+                Lang.get("sounds_calm_mode_set", title=self.selected_track['title'])
             )
             self.apply_filters()
         else:
@@ -1024,11 +1019,11 @@ class SoundsView(ctk.CTkFrame):
 
     def set_selected_as_background(self):
         if not self.selected_track:
-            self.show_message("Selecciona primero un sonido.", error=True)
+            self.show_message(Lang.get("sounds_select_first"), error=True)
             return
 
         if not self.user_id():
-            self.show_message("No hay usuario activo.", error=True)
+            self.show_message(Lang.get("sounds_no_user"), error=True)
             return
 
         result = update_user_music_setting(
@@ -1046,10 +1041,10 @@ class SoundsView(ctk.CTkFrame):
         if play_result["success"]:
             self.update_player(
                 self.selected_track,
-                "Background Sound activo · loop suave"
+                Lang.get("sounds_background_active")
             )
             self.show_message(
-                f"{self.selected_track['title']} ahora está como sonido de fondo."
+                Lang.get("sounds_background_set", title=self.selected_track['title'])
             )
             self.apply_filters()
         else:
@@ -1057,7 +1052,7 @@ class SoundsView(ctk.CTkFrame):
 
     def toggle_favorite(self, track):
         if not self.user_id():
-            self.show_message("No hay usuario activo.", error=True)
+            self.show_message(Lang.get("sounds_no_user"), error=True)
             return
 
         result = toggle_favorite_track(

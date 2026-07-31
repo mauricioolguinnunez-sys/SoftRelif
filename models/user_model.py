@@ -267,8 +267,6 @@ class UserModel:
             id_usuario = cursor.lastrowid
             connection.commit()
 
-            UserModel.ensure_mongo_link(id_usuario)
-
             return {
                 "success": True,
                 "message": "Usuario registrado correctamente.",
@@ -394,87 +392,13 @@ class UserModel:
             connection.close()
 
     @staticmethod
-    def ensure_mongo_link(id_usuario):
-        """
-        Asegura que un usuario tenga registro en usuario_mongo.
-        Esto no crea datos de bienestar; solo crea la conexión relacional con Mongo.
-        """
-
-        if not id_usuario:
-            return
-
-        conexion = get_connection()
-        cursor = conexion.cursor(dictionary=True)
-
-        try:
-            cursor.execute("""
-                SELECT id_conexion
-                FROM usuario_mongo
-                WHERE id_usuario = %s
-                LIMIT 1;
-            """, (id_usuario,))
-
-            if cursor.fetchone():
-                return
-
-            cursor.execute("""
-                INSERT INTO usuario_mongo (
-                    id_usuario,
-                    mongo_id,
-                    coleccion,
-                    descripcion,
-                    fecha_vinculacion
-                )
-                VALUES (%s, %s, %s, %s, NOW());
-            """, (
-                id_usuario,
-                f"mongo_usuario_{id_usuario}",
-                "usuarios_bienestar",
-                "Identificador de referencia para datos no relacionales del usuario."
-            ))
-
-            conexion.commit()
-
-        finally:
-            cursor.close()
-            conexion.close()
-
-    @staticmethod
-    def ensure_all_mongo_links():
-        """
-        Asegura conexión Mongo para todos los usuarios existentes.
-        """
-
-        conexion = get_connection()
-        cursor = conexion.cursor(dictionary=True)
-
-        try:
-            cursor.execute("""
-                SELECT id_usuario
-                FROM usuario
-                WHERE id_usuario NOT IN (
-                    SELECT id_usuario FROM usuario_mongo
-                );
-            """)
-
-            usuarios_sin_mongo = cursor.fetchall()
-
-        finally:
-            cursor.close()
-            conexion.close()
-
-        for usuario in usuarios_sin_mongo:
-            UserModel.ensure_mongo_link(usuario["id_usuario"])
-
-    @staticmethod
     def get_all_users():
         """
         Consulta todos los usuarios existentes para SuperuserView.
 
         Usa LEFT JOIN para no ocultar usuarios aunque falte alguna relación secundaria.
+        Los datos de bienestar se consultan en MongoDB por id_usuario.
         """
-
-        UserModel.ensure_all_mongo_links()
 
         conexion = get_connection()
         cursor = conexion.cursor(dictionary=True)
@@ -494,10 +418,7 @@ class UserModel:
                     pv.id_preferencia,
                     COALESCE(t.nombre, 'light') AS tema_visual,
                     COALESCE(pv.tamano_fuente, 'normal') AS tamano_fuente,
-                    COALESCE(pv.modo_visualizacion, 'estandar') AS modo_visualizacion,
-
-                    um.mongo_id,
-                    um.coleccion
+                    COALESCE(pv.modo_visualizacion, 'estandar') AS modo_visualizacion
                 FROM usuario u
                 LEFT JOIN rol r
                     ON u.id_rol = r.id_rol
@@ -507,8 +428,6 @@ class UserModel:
                     ON u.id_preferencia = pv.id_preferencia
                 LEFT JOIN tema t
                     ON pv.id_tema = t.id_tema
-                LEFT JOIN usuario_mongo um
-                    ON u.id_usuario = um.id_usuario
                 ORDER BY u.id_usuario DESC;
             """)
 
@@ -525,9 +444,8 @@ class UserModel:
 
         El especialista ve usuarios con rol 'usuario'.
         También muestra cuántas acciones ha registrado ese especialista sobre cada usuario.
+        Los datos de bienestar se consultan en MongoDB por id_usuario.
         """
-
-        UserModel.ensure_all_mongo_links()
 
         conexion = get_connection()
         cursor = conexion.cursor(dictionary=True)
@@ -548,9 +466,6 @@ class UserModel:
                     COALESCE(t.nombre, 'light') AS tema_visual,
                     COALESCE(pv.tamano_fuente, 'normal') AS tamano_fuente,
                     COALESCE(pv.modo_visualizacion, 'estandar') AS modo_visualizacion,
-
-                    um.mongo_id,
-                    um.coleccion,
 
                     COUNT(b.id_bitacora) AS acciones_especialista,
 
@@ -570,8 +485,6 @@ class UserModel:
                     ON u.id_preferencia = pv.id_preferencia
                 LEFT JOIN tema t
                     ON pv.id_tema = t.id_tema
-                LEFT JOIN usuario_mongo um
-                    ON u.id_usuario = um.id_usuario
                 LEFT JOIN bitacora_cuenta b
                     ON b.id_usuario = u.id_usuario
                     AND b.id_admin = %s
@@ -587,9 +500,7 @@ class UserModel:
                     pv.id_preferencia,
                     t.nombre,
                     pv.tamano_fuente,
-                    pv.modo_visualizacion,
-                    um.mongo_id,
-                    um.coleccion
+                    pv.modo_visualizacion
                 ORDER BY u.id_usuario DESC;
             """, (id_especialista,))
 
@@ -603,6 +514,7 @@ class UserModel:
     def get_user_detail(id_usuario):
         """
         Obtiene un usuario por ID usando el modelo relacional corregido.
+        Los datos de bienestar se consultan en MongoDB por id_usuario.
         """
 
         conexion = get_connection()
@@ -623,10 +535,7 @@ class UserModel:
                     pv.id_preferencia,
                     COALESCE(t.nombre, 'light') AS tema_visual,
                     COALESCE(pv.tamano_fuente, 'normal') AS tamano_fuente,
-                    COALESCE(pv.modo_visualizacion, 'estandar') AS modo_visualizacion,
-
-                    um.mongo_id,
-                    um.coleccion
+                    COALESCE(pv.modo_visualizacion, 'estandar') AS modo_visualizacion
                 FROM usuario u
                 LEFT JOIN rol r
                     ON u.id_rol = r.id_rol
@@ -636,8 +545,6 @@ class UserModel:
                     ON u.id_preferencia = pv.id_preferencia
                 LEFT JOIN tema t
                     ON pv.id_tema = t.id_tema
-                LEFT JOIN usuario_mongo um
-                    ON u.id_usuario = um.id_usuario
                 WHERE u.id_usuario = %s
                 LIMIT 1;
             """, (id_usuario,))

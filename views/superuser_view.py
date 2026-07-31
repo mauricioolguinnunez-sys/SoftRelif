@@ -15,6 +15,7 @@ from database.connection import get_connection
 from models.user_model import UserModel
 from utils.theme_manager import ThemeManager
 from utils.app_state import AppState
+from utils.i18n import Lang
 
 
 
@@ -32,6 +33,8 @@ class BaseVistaComponentes(ctk.CTkFrame):
 
         if self.usuario_actual:
             nombre_tema = self.usuario_actual.get("tema_visual", "light")
+
+        Lang.set(AppState.load_language())
 
         self.tema = ThemeManager.get_theme(nombre_tema)
 
@@ -67,15 +70,15 @@ class BaseVistaComponentes(ctk.CTkFrame):
 
         rol = str(datos.get("rol") or "").strip().lower()
         if rol in {"superuser", "superusuario"}:
-            rol_texto = "Superuser"
+            rol_texto = "superuser"
         elif rol in {"especialista"}:
-            rol_texto = "Especialista"
+            rol_texto = "especialista"
         elif rol in {"usuario", "user"}:
-            rol_texto = "Usuario"
+            rol_texto = "usuario"
         elif rol in {"sin_rol", "", "none", "null"}:
-            rol_texto = "Sin rol"
+            rol_texto = "sin_rol"
         else:
-            rol_texto = texto(datos.get("rol"), "Sin rol")
+            rol_texto = texto(datos.get("rol"), "sin_rol")
 
         estado = str(datos.get("estado") or "").strip().lower()
         if estado in {"activa", "active", "activo", "activa"}:
@@ -100,8 +103,6 @@ class BaseVistaComponentes(ctk.CTkFrame):
         datos["rol"] = rol_texto
         datos["estado"] = estado_texto
         datos["tema_visual"] = tema_texto
-        datos["mongo_id"] = texto(datos.get("mongo_id"), "-")
-        datos["coleccion"] = texto(datos.get("coleccion"), "-")
         datos["acciones_especialista"] = datos.get("acciones_especialista") or 0
         datos["ultima_recomendacion"] = datos.get("ultima_recomendacion")
 
@@ -133,11 +134,11 @@ class BaseVistaComponentes(ctk.CTkFrame):
         estado_normalizado = str(estado).lower()
 
         if estado_normalizado == "activa":
-            texto = "Activa"
+            texto = Lang.get("super_state_active").capitalize()
             fondo = "#DCFCE7"
             color_texto = "#166534"
         else:
-            texto = "Restringida"
+            texto = Lang.get("super_state_restricted").capitalize()
             fondo = "#FEE2E2"
             color_texto = "#991B1B"
 
@@ -156,9 +157,9 @@ class BaseVistaComponentes(ctk.CTkFrame):
         rol_normalizado = str(rol).lower()
 
         colores = {
-            "superuser": ("Superuser", "#EDE9FE", "#6D28D9"),
-            "especialista": ("Especialista", "#DBEAFE", "#1D4ED8"),
-            "usuario": ("Usuario", "#ECFDF5", "#047857"),
+            "superuser": (Lang.get("super_role_superuser"), "#EDE9FE", "#6D28D9"),
+            "especialista": (Lang.get("super_role_specialist"), "#DBEAFE", "#1D4ED8"),
+            "usuario": (Lang.get("super_role_user"), "#ECFDF5", "#047857"),
         }
 
         texto, fondo, color_texto = colores.get(
@@ -231,17 +232,17 @@ class SuperuserView(BaseVistaComponentes):
     - estado_cuenta
     - preferencia_visual
     - tema
-    - usuario_mongo
     - bitacora_cuenta
+
+    Los datos de bienestar se almacenan en MongoDB y se identifican por id_usuario.
 
     Funciones:
     - Listar usuarios.
-    - Buscar por nombre, correo, rol, estado, tema o mongo_id.
+    - Buscar por nombre, correo, rol, estado o tema.
     - Restringir usuarios.
     - Activar usuarios.
     - Eliminar usuarios.
     - Proteger cuentas superuser.
-    - Mostrar referencia MongoDB.
     """
 
     def __init__(self, master, app):
@@ -306,14 +307,14 @@ class SuperuserView(BaseVistaComponentes):
 
         TitleLabel(
             caja_texto,
-            "Panel Superuser",
+            Lang.get("super_title"),
             size=32,
             text_color=self.color("text", "#111827")
         ).pack(anchor="w")
 
         SubtitleLabel(
             caja_texto,
-            "Gestiona cuentas, estados, roles y conexión relacional con MongoDB.",
+            Lang.get("super_subtitle"),
             size=14,
             text_color=self.color("text_soft", "#6B7280")
         ).pack(anchor="w", pady=(4, 0))
@@ -329,7 +330,7 @@ class SuperuserView(BaseVistaComponentes):
 
         SecondaryButton(
             acciones,
-            text="Actualizar",
+            text=Lang.get("super_refresh"),
             width=115,
             height=36,
             fg_color=self.color("card_bg", "#FFFFFF"),
@@ -342,7 +343,7 @@ class SuperuserView(BaseVistaComponentes):
 
         PrimaryButton(
             acciones,
-            text="Cerrar sesión",
+            text=Lang.get("super_logout"),
             width=130,
             height=36,
             command=self.cerrar_sesion
@@ -362,10 +363,10 @@ class SuperuserView(BaseVistaComponentes):
             contenedor.grid_columnconfigure(columna, weight=1)
 
         metricas = [
-            ("Usuarios totales", "0", "total_label"),
-            ("Cuentas activas", "0", "activos_label"),
-            ("Cuentas restringidas", "0", "restringidos_label"),
-            ("Especialistas", "0", "especialistas_label"),
+            (Lang.get("super_total_users"), "0", "total_label"),
+            (Lang.get("super_active"), "0", "activos_label"),
+            (Lang.get("super_restricted"), "0", "restringidos_label"),
+            (Lang.get("super_specialists"), "0", "especialistas_label"),
         ]
 
         for columna, (titulo, valor, atributo) in enumerate(metricas):
@@ -422,7 +423,7 @@ class SuperuserView(BaseVistaComponentes):
 
         BodyLabel(
             barra,
-            "Cuentas registradas",
+            Lang.get("super_registered_accounts"),
             size=17,
             text_color=self.color("text", "#111827")
         ).grid(
@@ -437,7 +438,7 @@ class SuperuserView(BaseVistaComponentes):
             width=330,
             height=34,
             corner_radius=12,
-            placeholder_text="Buscar nombre, correo, rol, estado o Mongo ID...",
+            placeholder_text=Lang.get("super_search_placeholder"),
             fg_color=self.color("app_bg", "#F8FAFC"),
             border_color=self.color("card_border", "#E5E7EB"),
             text_color=self.color("text", "#111827")
@@ -503,7 +504,7 @@ class SuperuserView(BaseVistaComponentes):
 
         self.actualizar_metricas()
         self.dibujar_tabla()
-        self.mostrar_mensaje("Usuarios cargados correctamente.")
+        self.mostrar_mensaje(Lang.get("super_users_loaded"))
 
     def obtener_usuarios(self):
         """
@@ -513,7 +514,7 @@ class SuperuserView(BaseVistaComponentes):
         if not self.usuario_actual or self.usuario_actual.get("rol") != "superuser":
             return {
                 "success": False,
-                "message": "No tienes permisos para consultar usuarios.",
+                "message": Lang.get("super_no_permission"),
                 "users": []
             }
 
@@ -529,7 +530,7 @@ class SuperuserView(BaseVistaComponentes):
         except Exception as error:
             return {
                 "success": False,
-                "message": f"No se pudieron cargar usuarios: {error}",
+                "message": Lang.get("super_load_error", error=error),
                 "users": []
             }
 
@@ -560,7 +561,7 @@ class SuperuserView(BaseVistaComponentes):
 
         return {
             "success": False,
-            "message": "Formato inválido al cargar usuarios.",
+            "message": Lang.get("super_invalid_format"),
             "users": []
         }
 
@@ -588,8 +589,6 @@ class SuperuserView(BaseVistaComponentes):
             usuario.get("rol", ""),
             usuario.get("estado", ""),
             usuario.get("tema_visual", ""),
-            usuario.get("mongo_id", ""),
-            usuario.get("coleccion", ""),
         ]
 
         return any(texto in str(campo).lower() for campo in campos)
@@ -639,21 +638,20 @@ class SuperuserView(BaseVistaComponentes):
             self.crear_fila_usuario(fila, usuario)
 
     def configurar_columnas_tabla(self):
-        pesos = [0, 2, 2, 1, 1, 1, 2, 2]
+        pesos = [0, 2, 2, 1, 1, 1, 2]
 
         for columna, peso in enumerate(pesos):
             self.tabla.grid_columnconfigure(columna, weight=peso)
 
     def crear_encabezados_tabla(self):
         encabezados = [
-            "ID",
-            "Nombre",
-            "Correo",
-            "Rol",
-            "Estado",
-            "Tema",
-            "Mongo ID",
-            "Acciones"
+            Lang.get("super_id"),
+            Lang.get("super_name"),
+            Lang.get("super_email"),
+            Lang.get("super_role"),
+            Lang.get("super_status"),
+            Lang.get("super_theme"),
+            Lang.get("super_actions"),
         ]
 
         for columna, texto in enumerate(encabezados):
@@ -673,13 +671,13 @@ class SuperuserView(BaseVistaComponentes):
     def crear_tabla_vacia(self):
         BodyLabel(
             self.tabla,
-            "No se encontraron usuarios con ese filtro.",
+            Lang.get("super_no_results"),
             size=14,
             text_color=self.color("text_soft", "#6B7280")
         ).grid(
             row=1,
             column=0,
-            columnspan=8,
+            columnspan=7,
             sticky="w",
             padx=10,
             pady=25
@@ -741,26 +739,13 @@ class SuperuserView(BaseVistaComponentes):
             sticky="w"
         )
 
-        SmallLabel(
-            self.tabla,
-            str(usuario.get("mongo_id", "-")),
-            size=12,
-            text_color=self.color("text_soft", "#6B7280")
-        ).grid(
-            row=fila,
-            column=6,
-            padx=10,
-            pady=8,
-            sticky="w"
-        )
-
         self.crear_acciones_fila(fila, usuario)
 
     def crear_acciones_fila(self, fila, usuario):
         acciones = self.marco(self.tabla)
         acciones.grid(
             row=fila,
-            column=7,
+            column=6,
             padx=10,
             pady=8,
             sticky="w"
@@ -769,7 +754,7 @@ class SuperuserView(BaseVistaComponentes):
         if usuario.get("rol") == "superuser":
             ctk.CTkLabel(
                 acciones,
-                text="Protegido",
+                text=Lang.get("super_protected"),
                 width=100,
                 height=28,
                 corner_radius=10,
@@ -785,21 +770,21 @@ class SuperuserView(BaseVistaComponentes):
         if estado == "activa":
             self.boton_secundario(
                 acciones,
-                "Restringir",
+                Lang.get("super_restrict"),
                 lambda uid=id_usuario: self.restringir_usuario(uid),
                 ancho=95
             ).grid(row=0, column=0, padx=(0, 6))
         else:
             self.boton_secundario(
                 acciones,
-                "Activar",
+                Lang.get("super_activate"),
                 lambda uid=id_usuario: self.activar_usuario(uid),
                 ancho=95
             ).grid(row=0, column=0, padx=(0, 6))
 
         self.boton_peligro(
             acciones,
-            "Eliminar",
+            Lang.get("super_delete"),
             lambda uid=id_usuario: self.confirmar_eliminacion(uid),
             ancho=90
         ).grid(row=0, column=1)
@@ -821,13 +806,13 @@ class SuperuserView(BaseVistaComponentes):
         if not usuario:
             return {
                 "success": False,
-                "message": "Usuario no encontrado."
+                "message": Lang.get("super_not_found")
             }
 
         if usuario.get("rol") == "superuser":
             return {
                 "success": False,
-                "message": "No puedes modificar una cuenta superuser."
+                "message": Lang.get("super_cannot_modify")
             }
 
         return {
@@ -888,7 +873,7 @@ class SuperuserView(BaseVistaComponentes):
         except Exception as error:
             resultado = {
                 "success": False,
-                "message": f"No se pudo completar la acción: {error}"
+                "message": f"{Lang.get('super_action_failed')}: {error}"
             }
 
         if recargar:
@@ -909,7 +894,7 @@ class SuperuserView(BaseVistaComponentes):
 
         return {
             "success": False,
-            "message": "Acción no reconocida."
+            "message": Lang.get("super_action_failed")
         }
 
     def actualizar_estado_directo(self, id_usuario, estado):
@@ -929,7 +914,7 @@ class SuperuserView(BaseVistaComponentes):
             if not estado_db:
                 return {
                     "success": False,
-                    "message": f"No existe el estado '{estado}'."
+                    "message": f"Estado '{estado}' {Lang.get('super_not_found')}"
                 }
 
             cursor.execute("""
@@ -949,7 +934,7 @@ class SuperuserView(BaseVistaComponentes):
 
             return {
                 "success": True,
-                "message": f"Cuenta actualizada a estado {estado}."
+                "message": Lang.get("super_state_changed", estado=estado)
             }
 
         except Exception as error:
@@ -981,7 +966,7 @@ class SuperuserView(BaseVistaComponentes):
             if not usuario:
                 return {
                     "success": False,
-                    "message": "Usuario no encontrado."
+                    "message": Lang.get("super_not_found")
                 }
 
             id_preferencia = usuario["id_preferencia"]
@@ -1007,7 +992,7 @@ class SuperuserView(BaseVistaComponentes):
 
             return {
                 "success": True,
-                "message": "Usuario eliminado correctamente."
+                "message": Lang.get("super_action_completed")
             }
 
         except Exception as error:
@@ -1015,7 +1000,7 @@ class SuperuserView(BaseVistaComponentes):
 
             return {
                 "success": False,
-                "message": f"No se pudo eliminar el usuario: {error}"
+                "message": f"{Lang.get('super_action_failed')}: {error}"
             }
 
         finally:
@@ -1048,18 +1033,18 @@ class SuperuserView(BaseVistaComponentes):
         if isinstance(resultado, dict):
             return {
                 "success": resultado.get("success", False),
-                "message": resultado.get("message", "Acción realizada.")
+                "message": resultado.get("message", Lang.get("super_action_completed"))
             }
 
         if resultado is True:
             return {
                 "success": True,
-                "message": "Acción realizada correctamente."
+                "message": Lang.get("super_action_completed")
             }
 
         return {
             "success": False,
-            "message": "No se pudo completar la acción."
+            "message": Lang.get("super_action_failed")
         }
 
     # =====================================================
@@ -1074,7 +1059,7 @@ class SuperuserView(BaseVistaComponentes):
             return
 
         ventana = ctk.CTkToplevel(self)
-        ventana.title("Confirmar eliminación")
+        ventana.title(Lang.get("super_confirm_delete_title"))
         ventana.geometry("460x250")
         ventana.resizable(False, False)
         ventana.grab_set()
@@ -1094,15 +1079,14 @@ class SuperuserView(BaseVistaComponentes):
 
         TitleLabel(
             tarjeta,
-            "¿Eliminar usuario?",
+            Lang.get("super_confirm_delete_msg"),
             size=24,
             text_color=self.color("text", "#111827")
         ).pack(pady=(28, 8))
 
         BodyLabel(
             tarjeta,
-            "Esta acción eliminará la cuenta seleccionada.\n"
-            "También eliminará su preferencia visual y su conexión Mongo.",
+            Lang.get("super_confirm_delete_desc"),
             size=14,
             text_color=self.color("text_soft", "#6B7280"),
             justify="center"
@@ -1113,14 +1097,14 @@ class SuperuserView(BaseVistaComponentes):
 
         self.boton_secundario(
             botones,
-            "Cancelar",
+            Lang.get("super_cancel"),
             ventana.destroy,
             ancho=130
         ).grid(row=0, column=0, padx=8)
 
         self.boton_peligro(
             botones,
-            "Sí, eliminar",
+            Lang.get("super_confirm_delete"),
             lambda: self.eliminar_usuario(id_usuario, ventana),
             ancho=130
         ).grid(row=0, column=1, padx=8)

@@ -11,17 +11,14 @@ from components import (
 )
 
 from utils.theme_manager import ThemeManager
+from utils.i18n import Lang
+from controllers.wellbeing_controller import WellbeingController
 
 
 class HistoryView(ctk.CTkFrame):
     """
     Vista Historial.
-
-    RF cubiertos:
-    - RF-016 Consultar historial del usuario.
-    - RF-010 Visualizar frase registrada.
-    - RF-011 Visualizar estado actual.
-    - RF-015 Consultar microdescansos realizados.
+    Los datos de check-in se obtienen desde MongoDB vía WellbeingController.
     """
 
     def __init__(self, master, app=None, user=None):
@@ -36,13 +33,15 @@ class HistoryView(ctk.CTkFrame):
             corner_radius=0
         )
 
-        self.checkins = self.load_checkins()
+        self.checkins = []
         self.microbreaks = self.load_microbreaks()
+        self.summary = {}
 
         self.grid_columnconfigure(0, weight=2)
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(2, weight=1)
 
+        self.load_data()
         self.build_view()
 
     # =====================================================
@@ -76,81 +75,76 @@ class HistoryView(ctk.CTkFrame):
             corner_radius=radius
         )
 
-    def load_checkins(self):
-        data = []
-
-        if self.app and hasattr(self.app, "checkin_history"):
-            data.extend(self.app.checkin_history)
-
-        if self.app and getattr(self.app, "last_checkin", None):
-            if self.app.last_checkin not in data:
-                data.insert(0, self.app.last_checkin)
-
-        if self.user and self.user.get("ultimo_checkin"):
-            if self.user["ultimo_checkin"] not in data:
-                data.insert(0, self.user["ultimo_checkin"])
-
-        return data
+    def load_data(self):
+        result = WellbeingController.get_history(self.user)
+        if result.get("success"):
+            self.checkins = result.get("checkins", [])
+            self.summary = result.get("summary", {})
+        else:
+            self.checkins = []
+            self.summary = {}
 
     def load_microbreaks(self):
         if self.app and hasattr(self.app, "microbreak_history"):
             return self.app.microbreak_history
         return []
 
-    def avg(self, key):
-        values = [
-            item.get(key)
-            for item in self.checkins
-            if isinstance(item.get(key), (int, float))
-        ]
-        return round(sum(values) / len(values), 1) if values else 0
+    def avg_from_summary(self, key):
+        promedios = self.summary.get("promedios", {})
+        return promedios.get(key, 0)
 
     def status_from_value(self, value, kind):
         if value == 0:
-            return "Sin datos"
+            return Lang.get("history_no_data_status")
 
-        if kind == "stress":
+        if kind in ("stress", "agotamiento", "presion", "cansancio_mental", "irritabilidad", "saturacion", "desconexion"):
             if value <= 3:
-                return "Bajo"
+                return Lang.get("history_low")
             if value <= 6:
-                return "Moderado"
-            return "Alto"
+                return Lang.get("history_moderate")
+            return Lang.get("history_high")
 
         if value <= 3:
-            return "Baja"
+            return Lang.get("history_low_f")
         if value <= 6:
-            return "Media"
-        return "Buena"
+            return Lang.get("history_medium")
+        return Lang.get("history_good")
 
     def mood_color(self, mood):
         return {
-            "Tranquilo": "#62C79A",
-            "Saturado": "#F0AE7A",
-            "Ansioso": "#F0AE7A",
-            "Cansado": "#7DA7FF",
-            "Motivado": "#F0C95D",
+            Lang.get("checkin_mood_tranquilo"): "#62C79A",
+            Lang.get("checkin_mood_saturado"): "#F0AE7A",
+            Lang.get("checkin_mood_ansioso"): "#F0AE7A",
+            Lang.get("checkin_mood_cansado"): "#7DA7FF",
+            Lang.get("checkin_mood_motivado"): "#F0C95D",
         }.get(mood, self.c("accent", "#7C3AED"))
 
     def mood_icon(self, mood):
         return {
-            "Tranquilo": "🙂",
-            "Saturado": "😵",
-            "Ansioso": "😟",
-            "Cansado": "😴",
-            "Motivado": "⭐",
+            Lang.get("checkin_mood_tranquilo"): "🙂",
+            Lang.get("checkin_mood_saturado"): "😵",
+            Lang.get("checkin_mood_ansioso"): "😟",
+            Lang.get("checkin_mood_cansado"): "😴",
+            Lang.get("checkin_mood_motivado"): "⭐",
         }.get(mood, "☁")
 
     def main_phrase(self):
-        if self.checkins and self.checkins[0].get("phrase"):
-            return self.checkins[0]["phrase"]
+        if self.checkins:
+            latest = self.checkins[0]
+            if latest.get("frase"):
+                return latest["frase"]
+            respuestas = latest.get("respuestas", [])
+            for r in respuestas:
+                if r.get("tipo") == "texto" and r.get("valor"):
+                    return r["valor"]
 
         if self.user and self.user.get("frase_hoy"):
             return self.user["frase_hoy"]
 
-        return "La paz comienza con una pausa."
+        return Lang.get("history_default_phrase")
 
     def format_date(self, item):
-        raw = item.get("started_at") or item.get("created_at")
+        raw = item.get("fecha") or item.get("started_at") or item.get("created_at")
 
         if not raw:
             return "Hoy, registro reciente"
@@ -199,14 +193,14 @@ class HistoryView(ctk.CTkFrame):
 
         TitleLabel(
             title_box,
-            "Historial",
+            Lang.get("history_title"),
             size=34,
             text_color=self.c("text", "#1E1B4B")
         ).pack(anchor="w")
 
         SubtitleLabel(
             title_box,
-            "Tu recorrido hacia el equilibrio",
+            Lang.get("history_subtitle"),
             size=15,
             text_color=self.c("text_soft", "#6B7280")
         ).pack(anchor="w")
@@ -216,7 +210,7 @@ class HistoryView(ctk.CTkFrame):
 
         SmallLabel(
             user_box,
-            f"Hola, {self.user_name()}",
+            Lang.get("history_hello", name=self.user_name()),
             size=14,
             text_color=self.c("text", "#1E1B4B")
         ).pack(anchor="e")
@@ -245,13 +239,13 @@ class HistoryView(ctk.CTkFrame):
         total_sessions = len(self.checkins) + len(self.microbreaks)
         total_minutes = sum(item.get("duration", 0) for item in self.microbreaks)
         streak = min(total_sessions, 7)
-        stress_avg = self.avg("stress")
+        last_type = self.summary.get("ultimo_tipo_checkin", "-")
 
         items = [
-            ("Sesiones hechas", total_sessions),
-            ("Minutos hechos", total_minutes),
-            ("Racha", f"{streak} días"),
-            ("Estrés", self.status_from_value(stress_avg, "stress")),
+            (Lang.get("history_sessions"), total_sessions),
+            (Lang.get("history_minutes"), total_minutes),
+            (Lang.get("history_streak"), Lang.get("history_streak_days", count=streak)),
+            (Lang.get("history_last_checkin"), last_type),
         ]
 
         for col, (title, value) in enumerate(items):
@@ -316,13 +310,13 @@ class HistoryView(ctk.CTkFrame):
 
         TitleLabel(
             card,
-            "Check-ins recientes",
+            Lang.get("history_recent"),
             size=20,
             text_color=self.c("text", "#1E1B4B")
         ).pack(anchor="w", padx=22, pady=(20, 12))
 
         if not self.checkins:
-            self.empty(card, "Todavía no hay check-ins guardados.")
+            self.empty(card, Lang.get("history_no_checkins"))
             return
 
         for item in self.checkins[:4]:
@@ -330,15 +324,16 @@ class HistoryView(ctk.CTkFrame):
 
         SecondaryButton(
             card,
-            text="Ver todos mis check-ins  ›",
+            text=Lang.get("history_view_all"),
             height=36,
             command=self.show_total_checkins
         ).pack(fill="x", padx=22, pady=(10, 20))
 
     def checkin_row(self, parent, item):
-        mood = item.get("mood", "Sin estado")
-        stress = item.get("stress", "-")
-        energy = item.get("energy", "-")
+        mood = item.get("estado_animo_general") or item.get("estado_animo") or item.get("mood", "Sin estado")
+        title = item.get("titulo_checkin") or item.get("tipo_checkin", "Check-in")
+        respuestas = item.get("respuestas", [])
+        metricas = item.get("resumen_metricas", {})
 
         row = self.make_card(parent, bg=self.c("app_bg", "#F6F7FB"), radius=15)
         row.pack(fill="x", padx=22, pady=5)
@@ -357,14 +352,22 @@ class HistoryView(ctk.CTkFrame):
 
         TitleLabel(
             row,
-            self.format_date(item),
+            f"{title} · {self.format_date(item)}",
             size=14,
             text_color=self.c("text", "#1E1B4B")
         ).grid(row=0, column=1, sticky="w", pady=(10, 0))
 
+        resumen_parts = []
+        for clave, val in list(metricas.items())[:2]:
+            resumen_parts.append(f"{clave.capitalize()} {val}/10")
+        if respuestas:
+            text_resp = [r.get("valor", "") for r in respuestas if r.get("tipo") == "texto" and r.get("valor")]
+            if text_resp:
+                resumen_parts.append(f"'{text_resp[0][:40]}'")
+
         SmallLabel(
             row,
-            f"Estrés {stress}/10  •  Energía {energy}/10",
+            " • ".join(resumen_parts) if resumen_parts else "Sin datos detallados",
             text_color=self.c("text_soft", "#6B7280")
         ).grid(row=1, column=1, sticky="w", pady=(0, 10))
 
@@ -388,25 +391,32 @@ class HistoryView(ctk.CTkFrame):
 
         TitleLabel(
             card,
-            "Resumen semanal",
+            Lang.get("history_metrics_title"),
             size=20,
             text_color=self.c("text", "#1E1B4B")
         ).pack(anchor="w", padx=22, pady=(20, 4))
 
         SmallLabel(
             card,
-            "Promedio de tus niveles esta semana",
+            Lang.get("history_metrics_subtitle"),
             text_color=self.c("text_soft", "#6B7280")
         ).pack(anchor="w", padx=22, pady=(0, 16))
 
         box = ctk.CTkFrame(card, fg_color="transparent")
         box.pack(fill="x", padx=22)
 
-        box.grid_columnconfigure(0, weight=1)
-        box.grid_columnconfigure(1, weight=1)
+        promedios = self.summary.get("promedios", {})
+        if promedios:
+            for col, (key, val) in enumerate(list(promedios.items())[:4]):
+                self.avg_block(box, Lang.get("history_avg_prefix", key=key.capitalize()), val, key, col)
+                box.grid_columnconfigure(col, weight=1)
+        else:
+            SmallLabel(
+                box,
+                Lang.get("history_no_data"),
+                text_color=self.c("text_soft", "#6B7280")
+            ).pack(anchor="w", pady=8)
 
-        self.avg_block(box, "Estrés promedio", self.avg("stress"), "stress", 0)
-        self.avg_block(box, "Energía promedio", self.avg("energy"), "energy", 1)
         self.chart(card)
 
     def avg_block(self, parent, title, value, kind, col):
@@ -469,17 +479,27 @@ class HistoryView(ctk.CTkFrame):
             ).grid(row=1, column=index, pady=(8, 0))
 
     def chart_values(self):
-        values = [
-            item.get("stress", 0)
-            for item in self.checkins
-            if isinstance(item.get("stress"), (int, float))
-        ]
+        first_metric = None
+        for item in self.checkins:
+            rm = item.get("resumen_metricas", {})
+            if rm:
+                first_metric = list(rm.keys())[0]
+                break
+
+        if first_metric:
+            values = []
+            for item in self.checkins:
+                rm = item.get("resumen_metricas", {})
+                val = rm.get(first_metric)
+                if isinstance(val, (int, float)):
+                    values.append(val)
+        else:
+            values = []
 
         if not values:
             return [0, 0, 0, 0, 0, 0, 0]
 
         values = values[:7]
-
         while len(values) < 7:
             values.append(values[-1])
 
@@ -495,7 +515,7 @@ class HistoryView(ctk.CTkFrame):
 
         TitleLabel(
             card,
-            "Frase del día",
+            Lang.get("history_phrase_title"),
             size=20,
             text_color=self.c("text", "#1E1B4B")
         ).pack(anchor="w", padx=22, pady=(20, 8))
@@ -528,7 +548,7 @@ class HistoryView(ctk.CTkFrame):
 
         TitleLabel(
             card,
-            "Actividad registrada",
+            Lang.get("history_activity_title"),
             size=20,
             text_color=self.c("text", "#1E1B4B")
         ).pack(anchor="w", padx=22, pady=(20, 12))
@@ -536,7 +556,7 @@ class HistoryView(ctk.CTkFrame):
         activities = self.activities()
 
         if not activities:
-            self.empty(card, "Sin actividad registrada.")
+            self.empty(card, Lang.get("history_no_activity"))
             return
 
         for item in activities[:6]:
@@ -546,14 +566,18 @@ class HistoryView(ctk.CTkFrame):
         data = []
 
         for item in self.checkins:
+            mood = item.get("estado_animo_general") or item.get("estado_animo") or Lang.get("history_no_data_status")
+            titulo = item.get("titulo_checkin") or Lang.get("checkin_title")
+            metricas = item.get("resumen_metricas", {})
+            detail_parts = [f"{k.capitalize()} {v}/10" for k, v in list(metricas.items())[:2]]
             data.append({
-                "title": f"Check-in emocional: {item.get('mood', 'Sin estado')}",
-                "detail": f"Estrés {item.get('stress', '-')}/10 • Energía {item.get('energy', '-')}/10",
+                "title": f"{titulo}: {mood}",
+                "detail": " • ".join(detail_parts) if detail_parts else Lang.get("history_completed"),
             })
 
         for item in self.microbreaks:
             data.append({
-                "title": f"Microdescanso: {item.get('title', 'Actividad')}",
+                "title": Lang.get("history_microbreak", title=item.get("title", "Actividad")),
                 "detail": f"{item.get('duration', '-')} min • {item.get('category', 'General')}",
             })
 
@@ -604,7 +628,9 @@ class HistoryView(ctk.CTkFrame):
     def show_total_checkins(self):
         from tkinter import messagebox
 
+        total = self.summary.get("total_checkins", len(self.checkins))
+        ultimo_tipo = self.summary.get("ultimo_tipo_checkin", "N/A")
         messagebox.showinfo(
-            "Check-ins",
-            f"Tienes {len(self.checkins)} check-in(s) registrado(s)."
+            Lang.get("history_title"),
+            Lang.get("history_checkin_info", total=total, ultimo=ultimo_tipo)
         )

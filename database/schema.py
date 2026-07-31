@@ -1,5 +1,3 @@
-from datetime import date, datetime
-
 from database.connection import get_connection
 from utils.password_utils import hash_password
 
@@ -23,8 +21,10 @@ def create_tables():
     - TEMA
     - PREFERENCIA_VISUAL
     - USUARIO
-    - USUARIO_MONGO
     - BITACORA_CUENTA
+
+    Los datos de bienestar (check-ins, música, microdescansos)
+    se almacenan en MongoDB, identificados por id_usuario.
     """
 
     conexion = get_connection()
@@ -182,25 +182,6 @@ def crear_tablas(cursor):
     """)
 
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS usuario_mongo (
-            id_conexion INT AUTO_INCREMENT PRIMARY KEY,
-            id_usuario INT NOT NULL UNIQUE,
-            mongo_id VARCHAR(255) NOT NULL UNIQUE,
-            coleccion VARCHAR(80) NOT NULL DEFAULT 'usuarios_bienestar',
-            descripcion VARCHAR(255),
-            fecha_vinculacion DATETIME NOT NULL,
-
-            CONSTRAINT fk_usuario_mongo_usuario
-                FOREIGN KEY (id_usuario)
-                REFERENCES usuario(id_usuario)
-                ON UPDATE CASCADE
-                ON DELETE CASCADE
-        ) ENGINE=InnoDB
-          DEFAULT CHARSET=utf8mb4
-          COLLATE=utf8mb4_unicode_ci;
-    """)
-
-    cursor.execute("""
         CREATE TABLE IF NOT EXISTS bitacora_cuenta (
             id_bitacora INT AUTO_INCREMENT PRIMARY KEY,
             id_admin INT NULL,
@@ -325,6 +306,14 @@ def insertar_catalogos_base(cursor):
             "gestionar_roles",
             "Permite gestionar roles y permisos."
         ),
+        (
+            "consultar_historial_bienestar",
+            "Permite consultar el historial de bienestar en MongoDB."
+        ),
+        (
+            "sugerir_musica",
+            "Permite sugerir música a usuarios."
+        ),
     ]
 
     for nombre, descripcion in estados:
@@ -384,6 +373,8 @@ def asignar_permisos_base(cursor):
         "asignar_recomendacion",
         "marcar_seguimiento",
         "cargar_recurso",
+        "sugerir_musica",
+        "consultar_historial_bienestar",
         "configuracion",
     ]
 
@@ -506,37 +497,6 @@ def crear_usuario_sistema(cursor, nombre, correo, password, rol):
     ))
 
     id_usuario = cursor.lastrowid
-
-    crear_conexion_mongo(
-        cursor=cursor,
-        id_usuario=id_usuario,
-        mongo_id=f"mongo_usuario_{id_usuario}",
-        coleccion="usuarios_bienestar",
-        descripcion="Identificador de referencia para datos no relacionales del usuario."
-    )
-
-
-# =====================================================
-# CONEXIÓN CON MONGO
-# =====================================================
-
-def crear_conexion_mongo(cursor, id_usuario, mongo_id, coleccion, descripcion=None):
-    cursor.execute("""
-        INSERT IGNORE INTO usuario_mongo (
-            id_usuario,
-            mongo_id,
-            coleccion,
-            descripcion,
-            fecha_vinculacion
-        )
-        VALUES (%s, %s, %s, %s, %s);
-    """, (
-        id_usuario,
-        mongo_id,
-        coleccion,
-        descripcion,
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    ))
 
 
 # =====================================================

@@ -6,6 +6,7 @@ import customtkinter as ctk
 from utils.music_catalog import get_all_music, get_music_by_id
 from utils.music_state import get_user_music_settings
 from utils.sound_player import SoundPlayer
+from utils.i18n import Lang
 
 
 class BreathingCanvas(tk.Canvas):
@@ -166,21 +167,21 @@ class CalmModeView(ctk.CTkFrame):
         self.modes = [
             {
                 "id": "uniforme",
-                "nombre": "Respiración uniforme",
+                "nombre": Lang.get("calm_mode_uniforme"),
                 "fases": [5, 0, 5, 0],
             },
             {
                 "id": "478",
-                "nombre": "Técnica 4-7-8",
+                "nombre": Lang.get("calm_mode_478"),
                 "fases": [4, 7, 8, 0],
             },
             {
                 "id": "box",
-                "nombre": "Box breathing",
+                "nombre": Lang.get("calm_mode_box"),
                 "fases": [4, 4, 4, 4],
             },
         ]
-        self.phase_names = ["Inhala...", "Mantén...", "Exhala...", "Pausa..."]
+        self.phase_names = [Lang.get("calm_phase_inhale"), Lang.get("calm_phase_hold"), Lang.get("calm_phase_exhale"), Lang.get("calm_phase_pause")]
         self.mode_index = 0
         self.phase_index = 0
         self.phase_elapsed = 0.0
@@ -189,7 +190,7 @@ class CalmModeView(ctk.CTkFrame):
         self.is_paused = True
         self.bubble_scale = 0.80
         self.timer_text = "--"
-        self.instruction_text = "Listo para comenzar"
+        self.instruction_text = Lang.get("calm_ready")
         self.animation_job = None
 
         self.tracks = get_all_music()
@@ -233,14 +234,14 @@ class CalmModeView(ctk.CTkFrame):
 
         ctk.CTkLabel(
             header,
-            text="Modo calma",
+            text=Lang.get("calm_title"),
             font=("Segoe UI", 32, "bold"),
             text_color=self.TEXT,
         ).grid(row=0, column=0, sticky="w")
 
         ctk.CTkLabel(
             header,
-            text="Respira, baja el ritmo y recupera tu equilibrio.",
+            text=Lang.get("calm_subtitle"),
             font=("Segoe UI", 14),
             text_color=self.TEXT_SOFT,
         ).grid(row=1, column=0, sticky="w", pady=(2, 0))
@@ -337,7 +338,7 @@ class CalmModeView(ctk.CTkFrame):
             command=command,
         )
 
-    def build_options_column(self, parent):
+def build_options_column(self, parent):
         right = ctk.CTkFrame(parent, fg_color="transparent")
         right.grid(row=0, column=1, sticky="nsew", padx=(14, 0))
         right.grid_columnconfigure(0, weight=1)
@@ -346,7 +347,7 @@ class CalmModeView(ctk.CTkFrame):
         mode_card = self.option_card(right)
         mode_card.grid(row=0, column=0, sticky="ew", pady=(0, 14))
 
-        self.card_title(mode_card, "Modo de respiración").pack(
+        self.card_title(mode_card, Lang.get("calm_breathing_mode")).pack(
             anchor="w",
             padx=20,
             pady=(18, 8),
@@ -372,13 +373,13 @@ class CalmModeView(ctk.CTkFrame):
         sound_card = self.option_card(right)
         sound_card.grid(row=1, column=0, sticky="ew", pady=(0, 14))
 
-        self.card_title(sound_card, "Sonido ambiental").pack(
+        self.card_title(sound_card, Lang.get("calm_ambient_sound")).pack(
             anchor="w",
             padx=20,
             pady=(18, 8),
         )
 
-        track_names = list(self.track_by_name) or ["Sin sonidos disponibles"]
+        track_names = list(self.track_by_name) or [Lang.get("calm_no_sounds")]
         self.sound_combo = ctk.CTkComboBox(
             sound_card,
             values=track_names,
@@ -400,18 +401,14 @@ class CalmModeView(ctk.CTkFrame):
         quote_card = self.option_card(right)
         quote_card.grid(row=2, column=0, sticky="ew", pady=(0, 14))
 
-        self.card_title(quote_card, "Recomendación de hoy").pack(
+        self.card_title(quote_card, Lang.get("calm_today_recommendation")).pack(
             anchor="w",
             padx=20,
             pady=(18, 6),
         )
         ctk.CTkLabel(
             quote_card,
-            text=(
-                "“Cierra los ojos y concéntrate en tu respiración.\n"
-                "Este momento es solo para ti; recupera tu energía\n"
-                "antes de volver a tus actividades.”"
-            ),
+            text=Lang.get("calm_quote"),
             justify="left",
             anchor="w",
             font=("Segoe UI", 14, "italic"),
@@ -420,7 +417,7 @@ class CalmModeView(ctk.CTkFrame):
 
         self.status_label = ctk.CTkLabel(
             right,
-            text="Elige un patrón y comienza cuando estés listo.",
+            text=Lang.get("calm_status_ready"),
             justify="left",
             anchor="w",
             font=("Segoe UI", 12),
@@ -430,7 +427,7 @@ class CalmModeView(ctk.CTkFrame):
 
         ctk.CTkButton(
             right,
-            text="Finalizar sesión  🍃",
+            text=Lang.get("calm_finish"),
             height=44,
             corner_radius=22,
             fg_color="#243450",
@@ -465,7 +462,7 @@ class CalmModeView(ctk.CTkFrame):
                 self.mode_index = index
                 self.reset_phase()
                 self.status_label.configure(
-                    text=f"Patrón seleccionado: {mode['nombre']}."
+                    text=Lang.get("calm_pattern_selected", name=mode["nombre"])
                 )
                 break
 
@@ -494,9 +491,9 @@ class CalmModeView(ctk.CTkFrame):
 
         if self.is_paused:
             self.play_button.configure(text="▶")
-            self.instruction_text = "Sesión pausada"
+            self.instruction_text = Lang.get("calm_status_paused_label")
             SoundPlayer.pause()
-            self.status_label.configure(text="La sesión está en pausa.")
+            self.status_label.configure(text=Lang.get("calm_status_paused"))
         else:
             self.play_button.configure(text="Ⅱ")
             self.instruction_text = self.phase_names[self.phase_index]
@@ -505,18 +502,18 @@ class CalmModeView(ctk.CTkFrame):
                 SoundPlayer.resume()
             else:
                 self.play_selected_audio()
-            self.status_label.configure(text="Sesión de calma en curso.")
+            self.status_label.configure(text=Lang.get("calm_status_in_progress"))
 
     def play_selected_audio(self):
         if not self.selected_track:
             self.status_label.configure(
-                text="La respiración inició sin sonido ambiental."
+                text=Lang.get("calm_status_no_audio")
             )
             return
 
         result = SoundPlayer.play_calm_mode(self.selected_track["file"])
         self.status_label.configure(
-            text=result.get("message", "Sonido ambiental iniciado."),
+            text=result.get("message", Lang.get("calm_status_audio_started")),
             text_color=self.TEXT_SOFT if result.get("success") else "#FFB4B4",
         )
 
@@ -528,7 +525,7 @@ class CalmModeView(ctk.CTkFrame):
         self.instruction_text = (
             self.phase_names[0]
             if self.is_started and not self.is_paused
-            else "Listo para comenzar"
+            else Lang.get("calm_ready")
         )
 
     def next_phase(self):
@@ -592,7 +589,7 @@ class CalmModeView(ctk.CTkFrame):
         SoundPlayer.stop()
         self.reset_phase()
         self.status_label.configure(
-            text="Sesión finalizada. Tómate un momento antes de continuar.",
+            text=Lang.get("calm_status_finished"),
             text_color=self.TEXT_SOFT,
         )
 

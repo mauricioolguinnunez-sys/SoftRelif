@@ -22,6 +22,7 @@ from components.settings_components import (
 
 from utils.theme_manager import ThemeManager
 from utils.app_state import AppState
+from utils.i18n import Lang
 
 
 class SettingsView(ctk.CTkFrame):
@@ -54,6 +55,8 @@ class SettingsView(ctk.CTkFrame):
             fg_color=self.theme.get("app_bg", "#F6F7FB"),
             corner_radius=0
         )
+
+        Lang.set(AppState.load_language())
 
         self.selected_theme = self.theme_name
         self.persist_theme = True
@@ -187,14 +190,14 @@ class SettingsView(ctk.CTkFrame):
 
         TitleLabel(
             title_box,
-            "Configuración",
+            Lang.get("settings_title"),
             size=34,
             text_color=self.theme.get("text", "#1E1B4B")
         ).pack(anchor="w")
 
         SubtitleLabel(
             title_box,
-            "Personaliza tu experiencia",
+            Lang.get("settings_subtitle"),
             size=16,
             text_color=self.theme.get("text_soft", "#6B7280")
         ).pack(anchor="w")
@@ -204,7 +207,7 @@ class SettingsView(ctk.CTkFrame):
 
         SmallLabel(
             user_box,
-            f"Hola, {self.get_user_name()}",
+            Lang.get("settings_hello", name=self.get_user_name()),
             size=14,
             text_color=self.theme.get("text", "#1E1B4B")
         ).pack(anchor="e")
@@ -232,8 +235,8 @@ class SettingsView(ctk.CTkFrame):
         self.light_card = ThemeOptionCard(
             left,
             theme=self.theme,
-            title="Claro",
-            subtitle="Interfaz luminosa y suave.",
+            title=Lang.get("settings_light"),
+            subtitle=Lang.get("settings_light_desc"),
             mode="light",
             selected=self.selected_theme == "light",
             command=self.change_theme
@@ -249,8 +252,8 @@ class SettingsView(ctk.CTkFrame):
         self.dark_card = ThemeOptionCard(
             left,
             theme=self.theme,
-            title="Oscuro",
-            subtitle="Interfaz cómoda en baja luz.",
+            title=Lang.get("settings_dark"),
+            subtitle=Lang.get("settings_dark_desc"),
             mode="dark",
             selected=self.selected_theme == "dark",
             command=self.change_theme
@@ -349,21 +352,21 @@ class SettingsView(ctk.CTkFrame):
 
         TitleLabel(
             text_box,
-            "Datos de cuenta",
+            Lang.get("settings_account_data"),
             size=19,
             text_color=self.theme.get("text", "#1E1B4B")
         ).pack(anchor="w")
 
         SmallLabel(
             text_box,
-            "Actualiza tu nombre, correo y contraseña.",
+            Lang.get("settings_account_data_desc"),
             size=12,
             text_color=self.theme.get("text_soft", "#6B7280")
         ).pack(anchor="w", pady=(3, 0))
 
         PrimaryButton(
             card,
-            text="Cambiar datos",
+            text=Lang.get("settings_change_data"),
             width=140,
             height=36,
             command=self.build_account_view
@@ -477,21 +480,21 @@ class SettingsView(ctk.CTkFrame):
 
         TitleLabel(
             title_box,
-            "Datos de cuenta",
+            Lang.get("settings_account_title"),
             size=34,
             text_color=self.theme.get("text", "#1E1B4B")
         ).pack(anchor="w")
 
         SubtitleLabel(
             title_box,
-            "Modifica la información básica de tu cuenta",
+            Lang.get("settings_account_subtitle"),
             size=16,
             text_color=self.theme.get("text_soft", "#6B7280")
         ).pack(anchor="w")
 
         SecondaryButton(
             header,
-            text="Volver",
+            text=Lang.get("settings_back"),
             width=120,
             height=36,
             fg_color=self.theme.get("card_bg", "#FFFFFF"),
@@ -526,7 +529,7 @@ class SettingsView(ctk.CTkFrame):
 
         TitleLabel(
             card,
-            "Información personal",
+            Lang.get("settings_personal_info"),
             size=22,
             text_color=self.theme.get("text", "#1E1B4B")
         ).grid(
@@ -539,7 +542,7 @@ class SettingsView(ctk.CTkFrame):
 
         BodyLabel(
             card,
-            "Estos cambios se guardan sobre tu cuenta actual sin crear tablas nuevas.",
+            Lang.get("settings_personal_info_desc"),
             size=13,
             text_color=self.theme.get("text_soft", "#6B7280"),
             wraplength=460
@@ -551,8 +554,8 @@ class SettingsView(ctk.CTkFrame):
             pady=(0, 12)
         )
 
-        self.create_field_label(card, "Nombre visible", 2)
-        self.nombre_entry = self.create_entry(card, "Tu nombre")
+        self.create_field_label(card, Lang.get("settings_field_name"), 2)
+        self.nombre_entry = self.create_entry(card, Lang.get("settings_name_placeholder"))
         self.nombre_entry.grid(
             row=3,
             column=0,
@@ -561,8 +564,8 @@ class SettingsView(ctk.CTkFrame):
             pady=(0, 8)
         )
 
-        self.create_field_label(card, "Nombre de usuario", 4)
-        self.usuario_entry = self.create_entry(card, "Nombre de usuario")
+        self.create_field_label(card, Lang.get("settings_field_username"), 4)
+        self.usuario_entry = self.create_entry(card, Lang.get("settings_field_username"))
         self.usuario_entry.grid(
             row=5,
             column=0,
@@ -585,8 +588,8 @@ class SettingsView(ctk.CTkFrame):
             pady=(0, 8)
         )
 
-        self.create_field_label(card, "Correo electrónico", 7)
-        self.correo_entry = self.create_entry(card, "correo@ejemplo.com")
+        self.create_field_label(card, Lang.get("settings_field_email"), 7)
+        self.correo_entry = self.create_entry(card, Lang.get("settings_email_placeholder"))
         self.correo_entry.grid(
             row=8,
             column=0,
@@ -597,7 +600,7 @@ class SettingsView(ctk.CTkFrame):
 
         PrimaryButton(
             card,
-            text="Guardar datos",
+            text=Lang.get("settings_save_data"),
             height=38,
             command=self.save_account_data
         ).grid(
@@ -628,7 +631,7 @@ class SettingsView(ctk.CTkFrame):
 
         TitleLabel(
             card,
-            "Seguridad",
+            Lang.get("settings_security"),
             size=22,
             text_color=self.theme.get("text", "#1E1B4B")
         ).grid(
@@ -641,7 +644,7 @@ class SettingsView(ctk.CTkFrame):
 
         BodyLabel(
             card,
-            "Actualiza tu contraseña validando primero la contraseña actual.",
+            Lang.get("settings_security_desc"),
             size=13,
             text_color=self.theme.get("text_soft", "#6B7280"),
             wraplength=460
@@ -653,10 +656,10 @@ class SettingsView(ctk.CTkFrame):
             pady=(0, 12)
         )
 
-        self.create_field_label(card, "Contraseña actual", 2)
+        self.create_field_label(card, Lang.get("settings_current_password"), 2)
         self.password_actual_entry = self.create_entry(
             card,
-            "Contraseña actual",
+            Lang.get("settings_current_password"),
             show="*"
         )
         self.password_actual_entry.grid(
@@ -667,10 +670,10 @@ class SettingsView(ctk.CTkFrame):
             pady=(0, 8)
         )
 
-        self.create_field_label(card, "Nueva contraseña", 4)
+        self.create_field_label(card, Lang.get("settings_new_password"), 4)
         self.password_nueva_entry = self.create_entry(
             card,
-            "Nueva contraseña",
+            Lang.get("settings_new_password"),
             show="*"
         )
         self.password_nueva_entry.grid(
@@ -681,10 +684,10 @@ class SettingsView(ctk.CTkFrame):
             pady=(0, 8)
         )
 
-        self.create_field_label(card, "Confirmar nueva contraseña", 6)
+        self.create_field_label(card, Lang.get("settings_confirm_password"), 6)
         self.password_confirmar_entry = self.create_entry(
             card,
-            "Confirmar nueva contraseña",
+            Lang.get("settings_confirm_password"),
             show="*"
         )
         self.password_confirmar_entry.grid(
@@ -697,7 +700,7 @@ class SettingsView(ctk.CTkFrame):
 
         PrimaryButton(
             card,
-            text="Cambiar contraseña",
+            text=Lang.get("settings_change_password"),
             height=38,
             command=self.change_password
         ).grid(
@@ -714,18 +717,18 @@ class SettingsView(ctk.CTkFrame):
 
     def change_theme(self, theme):
         if theme not in ["light", "dark"]:
-            self.show_message("Tema no válido.", error=True)
+            self.show_message(Lang.get("settings_no_theme"), error=True)
             return
 
         if not self.user:
-            self.show_message("No hay usuario activo para actualizar el tema.", error=True)
+            self.show_message(Lang.get("settings_no_user"), error=True)
             return
 
         result = UserController.update_theme(self.user, theme)
 
         if not result.get("success"):
             self.show_message(
-                result.get("message", "No se pudo actualizar el tema."),
+                result.get("message", Lang.get("settings_update_error")),
                 error=True
             )
             return
@@ -744,7 +747,7 @@ class SettingsView(ctk.CTkFrame):
 
         ThemeManager.apply_mode(theme)
 
-        self.show_message("Tema actualizado correctamente.")
+        self.show_message(Lang.get("settings_theme_updated"))
 
         if self.light_card:
             self.light_card.set_selected(theme == "light")
@@ -760,9 +763,9 @@ class SettingsView(ctk.CTkFrame):
 
         if enabled:
             AppState.save_last_theme(self.selected_theme)
-            self.show_message("Persistencia del tema activada.")
+            self.show_message(Lang.get("settings_persistence_on"))
         else:
-            self.show_message("Persistencia del tema desactivada.")
+            self.show_message(Lang.get("settings_persistence_off"))
 
     # =====================================================
     # DATOS DE CUENTA
@@ -805,12 +808,12 @@ class SettingsView(ctk.CTkFrame):
         if self.username_supported:
             self.usuario_entry.configure(state="normal")
             self.username_note.configure(
-                text="Este campo se guarda en la columna usuario.usuario."
+                text=Lang.get("settings_username_note")
             )
         else:
             self.usuario_entry.configure(state="disabled")
             self.username_note.configure(
-                text="Tu modelo actual no tiene columna usuario; el acceso se maneja con correo."
+                text=Lang.get("settings_username_note_alt")
             )
 
     def save_account_data(self):
@@ -859,7 +862,7 @@ class SettingsView(ctk.CTkFrame):
                 self.app.current_user = self.user
 
         self.load_account_data()
-        self.show_message("Datos de cuenta actualizados correctamente.")
+        self.show_message(Lang.get("settings_data_updated"))
 
     def change_password(self):
         if not hasattr(UserController, "update_password"):
@@ -891,7 +894,7 @@ class SettingsView(ctk.CTkFrame):
         self.password_nueva_entry.delete(0, "end")
         self.password_confirmar_entry.delete(0, "end")
 
-        self.show_message("Contraseña actualizada correctamente.")
+        self.show_message(Lang.get("settings_password_updated"))
 
     # =====================================================
     # ELIMINAR CUENTA
@@ -899,20 +902,19 @@ class SettingsView(ctk.CTkFrame):
 
     def confirm_delete_account(self):
         if not self.user:
-            self.show_message("No hay usuario activo.", error=True)
+            self.show_message(Lang.get("settings_no_user_active"), error=True)
             return
 
         if self.user.get("rol") == "superuser":
             messagebox.showwarning(
-                "Cuenta protegida",
-                "La cuenta superuser no se puede eliminar."
+                Lang.get("settings_protected_account"),
+                Lang.get("settings_protected_msg")
             )
             return
 
         confirm = messagebox.askyesno(
-            "Eliminar cuenta",
-            "¿Seguro que deseas solicitar la eliminación de esta cuenta?\n\n"
-            "Esta acción eliminará tu cuenta de forma permanente."
+            Lang.get("settings_delete_confirm_title"),
+            Lang.get("settings_delete_confirm_msg")
         )
 
         if confirm:
@@ -923,8 +925,8 @@ class SettingsView(ctk.CTkFrame):
 
         if result.get("success"):
             messagebox.showinfo(
-                "Cuenta eliminada",
-                "La cuenta fue eliminada correctamente."
+                Lang.get("settings_account_deleted_title"),
+                Lang.get("settings_account_deleted_msg")
             )
 
             if self.app:

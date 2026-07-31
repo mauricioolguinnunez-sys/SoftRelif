@@ -14,20 +14,13 @@ from database.connection import get_connection
 from utils.theme_manager import ThemeManager
 from utils.app_state import AppState
 from models.user_model import UserModel
+from controllers.wellbeing_controller import WellbeingController
+from utils.i18n import Lang
 
 
 class SpecialistView(ctk.CTkFrame):
     """
     Vista única del especialista.
-
-    RF:
-    - RF-005 Visualizar panel de especialista.
-    - RF-020 Asignar recomendación.
-    - RF-022 Cargar recurso.
-    - Trayectoria: consultar historial relacional del usuario atendido.
-
-    Nota:
-    Se elimina la función de marcar seguimiento.
     """
 
     def __init__(self, master, app=None, user=None):
@@ -50,8 +43,6 @@ class SpecialistView(ctk.CTkFrame):
         self.total_label = None
         self.activos_label = None
         self.recomendados_label = None
-        self.mongo_label = None
-
         self.lista_usuarios = None
         self.detalle_card = None
         self.historial_frame = None
@@ -146,8 +137,6 @@ class SpecialistView(ctk.CTkFrame):
             tema_texto = texto(datos.get("tema_visual"), "light")
         datos["tema_visual"] = tema_texto
 
-        datos["mongo_id"] = texto(datos.get("mongo_id"), "-")
-        datos["coleccion"] = texto(datos.get("coleccion"), "-")
         datos["acciones_especialista"] = datos.get("acciones_especialista") or 0
         datos["ultima_recomendacion"] = datos.get("ultima_recomendacion")
 
@@ -228,14 +217,14 @@ class SpecialistView(ctk.CTkFrame):
 
         TitleLabel(
             card,
-            "Acceso no permitido",
+            Lang.get("specialist_access_denied"),
             size=28,
             text_color="#DC2626"
         ).pack(anchor="w", padx=28, pady=(32, 8))
 
         BodyLabel(
             card,
-            "Esta vista está reservada para usuarios con rol especialista.",
+            Lang.get("specialist_access_denied_msg"),
             size=15,
             text_color=self.color("text_soft", "#6B7280"),
             wraplength=700
@@ -243,7 +232,7 @@ class SpecialistView(ctk.CTkFrame):
 
         PrimaryButton(
             card,
-            text="Cerrar sesión",
+            text=Lang.get("logout"),
             width=140,
             height=36,
             command=self.cerrar_sesion
@@ -283,14 +272,14 @@ class SpecialistView(ctk.CTkFrame):
 
         TitleLabel(
             caja_texto,
-            "Panel Especialista",
+            Lang.get("specialist_panel"),
             size=32,
             text_color=self.color("text", "#111827")
         ).pack(anchor="w")
 
         SubtitleLabel(
             caja_texto,
-            "Usuarios comunes, recomendaciones, recursos y trayectoria de atención.",
+            Lang.get("specialist_subtitle"),
             size=14,
             text_color=self.color("text_soft", "#6B7280")
         ).pack(anchor="w", pady=(4, 0))
@@ -300,7 +289,7 @@ class SpecialistView(ctk.CTkFrame):
 
         SecondaryButton(
             acciones,
-            text="Actualizar",
+            text=Lang.get("refresh"),
             width=115,
             height=36,
             fg_color=self.color("card_bg", "#FFFFFF"),
@@ -313,7 +302,7 @@ class SpecialistView(ctk.CTkFrame):
 
         PrimaryButton(
             acciones,
-            text="Cerrar sesión",
+            text=Lang.get("logout"),
             width=130,
             height=36,
             command=self.cerrar_sesion
@@ -334,14 +323,14 @@ class SpecialistView(ctk.CTkFrame):
             contenedor.grid_columnconfigure(columna, weight=1)
 
         metricas = [
-            ("Usuarios comunes", "0", "total_label"),
-            ("Activos", "0", "activos_label"),
-            ("Recomendados", "0", "recomendados_label"),
-            ("Vinculados Mongo", "0", "mongo_label"),
+            ("👥", Lang.get("common_users"), "0", "total_label", "#7BAFD4"),
+            ("✅", Lang.get("active"), "0", "activos_label", "#62C79A"),
+            ("📋", Lang.get("recommended"), "0", "recomendados_label", "#B78BFA"),
+            ("📊", Lang.get("total_checkins"), "0", "total_checkins_label", "#F0AE7A"),
         ]
 
-        for columna, (titulo, valor, atributo) in enumerate(metricas):
-            tarjeta = self.tarjeta(contenedor, alto=92)
+        for columna, (icono, titulo, valor, atributo, color) in enumerate(metricas):
+            tarjeta = self.tarjeta(contenedor, alto=100)
             tarjeta.grid(
                 row=0,
                 column=columna,
@@ -350,20 +339,30 @@ class SpecialistView(ctk.CTkFrame):
             )
             tarjeta.grid_propagate(False)
 
+            top = self.marco(tarjeta)
+            top.pack(fill="x", padx=18, pady=(14, 2))
+
+            ctk.CTkLabel(
+                top,
+                text=icono,
+                font=("Arial", 22),
+                text_color=color
+            ).pack(side="left", padx=(0, 10))
+
             SmallLabel(
-                tarjeta,
+                top,
                 titulo,
                 size=12,
                 text_color=self.color("text_soft", "#6B7280")
-            ).pack(anchor="w", padx=20, pady=(16, 0))
+            ).pack(side="left")
 
             label_valor = TitleLabel(
                 tarjeta,
                 valor,
-                size=27,
+                size=28,
                 text_color=self.color("text", "#111827")
             )
-            label_valor.pack(anchor="w", padx=20, pady=(4, 0))
+            label_valor.pack(anchor="w", padx=18, pady=(2, 0))
 
             setattr(self, atributo, label_valor)
 
@@ -381,19 +380,25 @@ class SpecialistView(ctk.CTkFrame):
         panel.grid_columnconfigure(0, weight=1)
         panel.grid_rowconfigure(2, weight=1)
 
-        BodyLabel(
+        ctk.CTkLabel(
             panel,
-            "Usuarios comunes existentes",
+            text="👥",
+            font=("Arial", 18)
+        ).grid(row=0, column=0, sticky="w", padx=(20, 6), pady=(20, 8))
+
+        TitleLabel(
+            panel,
+            Lang.get("common_users"),
             size=18,
             text_color=self.color("text", "#111827")
-        ).grid(row=0, column=0, sticky="w", padx=20, pady=(20, 8))
+        ).grid(row=0, column=0, sticky="w", padx=(48, 20), pady=(20, 8))
 
         buscador = ctk.CTkEntry(
             panel,
             textvariable=self.busqueda_var,
             height=36,
             corner_radius=12,
-            placeholder_text="Buscar por nombre, correo, estado o Mongo ID...",
+            placeholder_text=Lang.get("search_placeholder"),
             fg_color=self.color("app_bg", "#F8FAFC"),
             border_color=self.color("card_border", "#E5E7EB"),
             text_color=self.color("text", "#111827")
@@ -476,19 +481,19 @@ class SpecialistView(ctk.CTkFrame):
 
         TitleLabel(
             card,
-            "RF-020 Asignar recomendación",
+            Lang.get("assign_recommendation"),
             size=19,
             text_color=self.color("text", "#111827")
         ).grid(row=0, column=0, sticky="w", padx=20, pady=(20, 6))
 
         SmallLabel(
             card,
-            "La recomendación aparecerá en el Home del usuario seleccionado.",
+            Lang.get("assign_recommendation_subtitle"),
             size=12,
             text_color=self.color("text_soft", "#6B7280")
         ).grid(row=1, column=0, sticky="w", padx=20, pady=(0, 10))
 
-        self.recomendacion_titulo = self.entrada(card, "Título de la recomendación")
+        self.recomendacion_titulo = self.entrada(card, Lang.get("recommendation_title_placeholder"))
         self.recomendacion_titulo.grid(row=2, column=0, sticky="ew", padx=20, pady=(0, 10))
 
         self.recomendacion_descripcion = self.area_texto(card, alto=120)
@@ -496,7 +501,7 @@ class SpecialistView(ctk.CTkFrame):
 
         PrimaryButton(
             card,
-            text="Guardar recomendación",
+            text=Lang.get("save_recommendation"),
             height=36,
             command=self.guardar_recomendacion
         ).grid(row=4, column=0, sticky="ew", padx=20, pady=(0, 20))
@@ -508,19 +513,19 @@ class SpecialistView(ctk.CTkFrame):
 
         TitleLabel(
             card,
-            "RF-022 Cargar recurso",
+            Lang.get("load_resource"),
             size=19,
             text_color=self.color("text", "#111827")
         ).grid(row=0, column=0, sticky="w", padx=20, pady=(20, 6))
 
         SmallLabel(
             card,
-            "Registra un recurso de apoyo vinculado al usuario seleccionado.",
+            Lang.get("load_resource_subtitle"),
             size=12,
             text_color=self.color("text_soft", "#6B7280")
         ).grid(row=1, column=0, sticky="w", padx=20, pady=(0, 10))
 
-        self.recurso_titulo = self.entrada(card, "Título del recurso")
+        self.recurso_titulo = self.entrada(card, Lang.get("resource_title_placeholder"))
         self.recurso_titulo.grid(row=2, column=0, sticky="ew", padx=20, pady=(0, 10))
 
         tipo = ctk.CTkOptionMenu(
@@ -539,7 +544,7 @@ class SpecialistView(ctk.CTkFrame):
 
         PrimaryButton(
             card,
-            text="Guardar recurso",
+            text=Lang.get("save_resource"),
             height=36,
             command=self.guardar_recurso
         ).grid(row=5, column=0, sticky="ew", padx=20, pady=(0, 20))
@@ -558,16 +563,22 @@ class SpecialistView(ctk.CTkFrame):
         card.grid_columnconfigure(0, weight=1)
         card.grid_rowconfigure(2, weight=1)
 
+        ctk.CTkLabel(
+            card,
+            text="📋",
+            font=("Arial", 18)
+        ).grid(row=0, column=0, sticky="w", padx=(20, 0), pady=(20, 6))
+
         TitleLabel(
             card,
-            "Trayectoria del usuario",
+            Lang.get("user_history"),
             size=20,
             text_color=self.color("text", "#111827")
-        ).grid(row=0, column=0, sticky="w", padx=20, pady=(20, 6))
+        ).grid(row=0, column=0, sticky="w", padx=(46, 20), pady=(20, 6))
 
         SmallLabel(
             card,
-            "Historial de recomendaciones y recursos registrados por este especialista.",
+            Lang.get("user_history_subtitle"),
             size=12,
             text_color=self.color("text_soft", "#6B7280")
         ).grid(row=1, column=0, sticky="w", padx=20, pady=(0, 10))
@@ -597,15 +608,6 @@ class SpecialistView(ctk.CTkFrame):
             self.usuarios = [
                 self.normalizar_usuario_para_vista(usuario)
                 for usuario in usuarios_brutos
-            ]
-
-            for usuario in self.usuarios:
-                if not usuario.get("mongo_id") or usuario.get("mongo_id") == "-":
-                    self.asegurar_conexion_mongo(usuario.get("id_usuario"))
-
-            self.usuarios = [
-                self.normalizar_usuario_para_vista(usuario)
-                for usuario in self.consultar_usuarios_comunes()
             ]
             self.usuarios_filtrados = self.usuarios[:]
 
@@ -653,9 +655,6 @@ class SpecialistView(ctk.CTkFrame):
             id_especialista=id_especialista
         )
 
-    def asegurar_conexion_mongo(self, id_usuario):
-        UserModel.ensure_mongo_link(id_usuario)
-
     # =====================================================
     # LISTA Y SELECCIÓN
     # =====================================================
@@ -679,7 +678,6 @@ class SpecialistView(ctk.CTkFrame):
             usuario.get("correo", ""),
             usuario.get("estado", ""),
             usuario.get("tema_visual", ""),
-            usuario.get("mongo_id", ""),
         ]
 
         return any(texto in str(campo).lower() for campo in campos)
@@ -693,7 +691,7 @@ class SpecialistView(ctk.CTkFrame):
         if not self.usuarios_filtrados:
             BodyLabel(
                 self.lista_usuarios,
-                "No hay usuarios comunes registrados.",
+                Lang.get("no_users"),
                 size=14,
                 text_color=self.color("text_soft", "#6B7280"),
                 wraplength=300
@@ -719,36 +717,53 @@ class SpecialistView(ctk.CTkFrame):
             border_width=1,
             border_color=borde
         )
-        card.grid(row=fila, column=0, sticky="ew", padx=4, pady=6)
+        card.grid(row=fila, column=0, sticky="ew", padx=4, pady=5)
         card.grid_columnconfigure(0, weight=1)
 
         texto_estado = usuario.get("estado", "-")
         acciones = usuario.get("acciones_especialista", 0)
-        ultima = usuario.get("ultima_recomendacion") or "Sin recomendación"
+        ultima = usuario.get("ultima_recomendacion") or Lang.get("last_recommendation")
 
-        boton = ctk.CTkButton(
+        nombre = usuario.get('nombre', '-')
+        correo = usuario.get('correo', '-')
+        iniciales = "".join(w[0].upper() for w in nombre.split()[:2] if w) or "U"
+
+        avatar = ctk.CTkLabel(
             card,
-            text=(
-                f"{usuario.get('nombre', '-')}\n"
-                f"{usuario.get('correo', '-')}\n"
-                f"Acciones contigo: {acciones} · Última rec.: {ultima}"
-            ),
-            height=78,
-            corner_radius=14,
-            fg_color="transparent",
-            hover_color=self.color("menu_hover", "#F3F4F6"),
-            text_color=self.color("text", "#111827"),
-            font=("Segoe UI", 12, "bold"),
-            anchor="w",
-            command=lambda uid=usuario.get("id_usuario"): self.seleccionar_usuario(uid)
+            text=iniciales,
+            width=40,
+            height=40,
+            corner_radius=20,
+            fg_color=self.color("accent_soft", "#EDE9FE"),
+            text_color=self.color("accent", "#7C3AED"),
+            font=("Segoe UI", 14, "bold")
         )
-        boton.grid(row=0, column=0, sticky="ew", padx=8, pady=8)
+        avatar.grid(row=0, column=0, padx=(10, 6), pady=10)
+        avatar.bind("<Button-1>", lambda e, uid=usuario.get("id_usuario"): self.seleccionar_usuario(uid))
 
-        self.etiqueta_estado(card, texto_estado).grid(row=0, column=1, padx=(0, 8), pady=8)
+        info = self.marco(card)
+        info.grid(row=0, column=1, sticky="ew", padx=(0, 6), pady=8)
+        info.grid_columnconfigure(0, weight=1)
+
+        TitleLabel(
+            info,
+            nombre,
+            size=14,
+            text_color=self.color("text", "#111827")
+        ).pack(anchor="w")
+
+        SmallLabel(
+            info,
+            f"{correo}  ·  {Lang.get('actions_with_you')} {acciones}  ·  {Lang.get('last_rec')} {ultima}",
+            size=10,
+            text_color=self.color("text_soft", "#6B7280")
+        ).pack(anchor="w")
+
+        info.bind("<Button-1>", lambda e, uid=usuario.get("id_usuario"): self.seleccionar_usuario(uid))
+
+        self.etiqueta_estado(card, texto_estado).grid(row=0, column=2, padx=(0, 8), pady=8)
 
     def seleccionar_usuario(self, id_usuario):
-        self.asegurar_conexion_mongo(id_usuario)
-
         usuario = self.consultar_usuario_por_id(id_usuario)
 
         if not usuario:
@@ -777,18 +792,18 @@ class SpecialistView(ctk.CTkFrame):
         if not self.usuario_seleccionado:
             TitleLabel(
                 self.detalle_card,
-                "Selecciona un usuario",
-                size=24,
+                Lang.get("select_user"),
+                size=22,
                 text_color=self.color("text", "#111827")
-            ).pack(anchor="w", padx=24, pady=(28, 8))
+            ).pack(anchor="w", padx=24, pady=(24, 6))
 
             BodyLabel(
                 self.detalle_card,
-                "Elige un usuario común para ver trayectoria, asignar recomendaciones o cargar recursos.",
+                Lang.get("select_user_detail"),
                 size=14,
                 text_color=self.color("text_soft", "#6B7280"),
-                wraplength=720
-            ).pack(anchor="w", padx=24)
+                wraplength=700
+            ).pack(anchor="w", padx=24, pady=(0, 24))
             return
 
         usuario = self.usuario_seleccionado
@@ -796,42 +811,59 @@ class SpecialistView(ctk.CTkFrame):
         self.detalle_card.grid_columnconfigure(0, weight=1)
         self.detalle_card.grid_columnconfigure(1, weight=0)
 
-        caja = self.marco(self.detalle_card)
-        caja.grid(row=0, column=0, sticky="w", padx=24, pady=24)
+        avatar_box = self.marco(self.detalle_card)
+        avatar_box.grid(row=0, column=0, sticky="w", padx=20, pady=16)
+
+        nombre = usuario.get("nombre", "-")
+        iniciales = "".join(w[0].upper() for w in nombre.split()[:2] if w) or "U"
+
+        ctk.CTkLabel(
+            avatar_box,
+            text=iniciales,
+            width=52,
+            height=52,
+            corner_radius=26,
+            fg_color=self.color("accent_soft", "#EDE9FE"),
+            text_color=self.color("accent", "#7C3AED"),
+            font=("Segoe UI", 22, "bold")
+        ).pack(side="left", padx=(0, 14))
+
+        caja = self.marco(avatar_box)
+        caja.pack(side="left", fill="x")
 
         TitleLabel(
             caja,
-            usuario.get("nombre", "-"),
-            size=25,
+            nombre,
+            size=22,
             text_color=self.color("text", "#111827")
         ).pack(anchor="w")
 
         BodyLabel(
             caja,
             usuario.get("correo", "-"),
-            size=14,
+            size=13,
             text_color=self.color("text_soft", "#6B7280")
-        ).pack(anchor="w", pady=(2, 8))
+        ).pack(anchor="w", pady=(0, 4))
 
-        SmallLabel(
+        Badge = ctk.CTkLabel(
             caja,
-            (
-                f"ID relacional: {usuario.get('id_usuario')}   |   "
-                f"Mongo ID: {usuario.get('mongo_id', '-')}   |   "
-                f"Tema: {usuario.get('tema_visual', '-')}"
-            ),
-            size=12,
-            text_color=self.color("text_soft", "#6B7280")
-        ).pack(anchor="w")
+            text=f"ID: {usuario.get('id_usuario')}  ·  Tema: {usuario.get('tema_visual', '-')}",
+            height=22,
+            corner_radius=6,
+            fg_color=self.color("app_bg", "#F6F7FB"),
+            text_color=self.color("text_soft", "#6B7280"),
+            font=("Segoe UI", 10)
+        )
+        Badge.pack(anchor="w")
 
         estado_box = self.marco(self.detalle_card)
-        estado_box.grid(row=0, column=1, sticky="e", padx=24, pady=24)
+        estado_box.grid(row=0, column=1, sticky="e", padx=20, pady=16)
 
-        self.etiqueta_estado(estado_box, usuario.get("estado", "-")).pack(anchor="e", pady=(0, 8))
+        self.etiqueta_estado(estado_box, usuario.get("estado", "-")).pack(anchor="e", pady=(0, 6))
 
         self.boton_secundario(
             estado_box,
-            "Actualizar trayectoria",
+            Lang.get("trajectory_refresh"),
             lambda: self.seleccionar_usuario(usuario.get("id_usuario")),
             ancho=170
         ).pack(anchor="e")
@@ -851,57 +883,207 @@ class SpecialistView(ctk.CTkFrame):
             ).grid(row=0, column=0, sticky="w", padx=4, pady=12)
             return
 
+        fila = 0
+        wellbeing_data = WellbeingController.get_specialist_user_history(
+            self.usuario_actual, self.usuario_seleccionado.get("id_usuario")
+        )
+
+        if wellbeing_data.get("success"):
+            resumen = wellbeing_data.get("resumen", {})
+            checkins = wellbeing_data.get("checkins", [])
+
+            if resumen.get("total_checkins", 0) > 0:
+                summary_card = ctk.CTkFrame(
+                    self.historial_frame,
+                    fg_color=self.color("accent_soft", "#EDE9FE"),
+                    corner_radius=14,
+                    border_width=1,
+                    border_color=self.color("accent", "#7C3AED")
+                )
+                summary_card.grid(row=fila, column=0, sticky="ew", padx=4, pady=5)
+                summary_card.grid_columnconfigure(0, weight=1)
+                fila += 1
+
+                promedios = resumen.get("promedios", {})
+                total_ck = resumen.get("total_checkins", 0)
+                ultimo_estado = resumen.get("ultimo_estado_animo_general", "-")
+
+                promedios_texto = "  |  ".join(
+                    f"{k.capitalize()} prom: {v}/10" for k, v in list(promedios.items())[:4]
+                )
+
+                header_box = self.marco(summary_card)
+                header_box.grid(row=0, column=0, sticky="ew", padx=14, pady=(10, 2))
+                header_box.grid_columnconfigure(0, weight=1)
+
+                ctk.CTkLabel(
+                    header_box,
+                    text="📊",
+                    font=("Arial", 16)
+                ).pack(side="left", padx=(0, 8))
+
+                TitleLabel(
+                    header_box,
+                    Lang.get("wellbeing_summary"),
+                    size=14,
+                    text_color=self.color("text", "#111827")
+                ).pack(side="left")
+
+                SmallLabel(
+                    summary_card,
+                    (
+                        f"Total: {total_ck}  |  "
+                        f"{promedios_texto}  |  "
+                        f"Último: {ultimo_estado}"
+                    ),
+                    size=11,
+                    text_color=self.color("text_soft", "#6B7280")
+                ).grid(row=1, column=0, sticky="w", padx=14, pady=(0, 10))
+
+                for checkin in checkins[:10]:
+                    mood = checkin.get("estado_animo_general") or checkin.get("estado_animo", "-")
+                    titulo = checkin.get("titulo_checkin") or checkin.get("tipo_checkin", "Check-in")
+                    metricas = checkin.get("resumen_metricas", {})
+                    metricas_texto = "  ·  ".join(
+                        f"{k.capitalize()} {v}/10" for k, v in list(metricas.items())[:3]
+                    )
+                    respuestas_txt = checkin.get("respuestas", [])
+                    texto_val = ""
+                    for r in respuestas_txt:
+                        if r.get("tipo") == "texto" and r.get("valor"):
+                            texto_val = r["valor"]
+                            break
+
+                    mood_colors = {"Tranquilo": "#62C79A", "Ansioso": "#B78BFA", "Cansado": "#7DA7FF", "Motivado": "#F0C95D", "Saturado": "#F0AE7A"}
+                    mood_color = mood_colors.get(mood, self.color("accent", "#7C3AED"))
+
+                    ck_card = ctk.CTkFrame(
+                        self.historial_frame,
+                        fg_color=self.color("card_bg", "#FFFFFF"),
+                        corner_radius=12,
+                        border_width=1,
+                        border_color=self.color("card_border", "#E5E7EB")
+                    )
+                    ck_card.grid(row=fila, column=0, sticky="ew", padx=6, pady=3)
+                    ck_card.grid_columnconfigure(1, weight=1)
+                    fila += 1
+
+                    ctk.CTkLabel(
+                        ck_card,
+                        text=mood[:2],
+                        width=34,
+                        height=34,
+                        corner_radius=17,
+                        fg_color=mood_color,
+                        text_color="white",
+                        font=("Arial", 14)
+                    ).grid(row=0, column=0, rowspan=2, padx=(10, 8), pady=8)
+
+                    TitleLabel(
+                        ck_card,
+                        f"{titulo} · {checkin.get('fecha_corta', checkin.get('fecha', '-'))}",
+                        size=12,
+                        text_color=self.color("text", "#111827")
+                    ).grid(row=0, column=1, sticky="w", pady=(6, 0))
+
+                    SmallLabel(
+                        ck_card,
+                        metricas_texto + (f"  ·  '{texto_val[:50]}'" if texto_val else ""),
+                        size=10,
+                        text_color=self.color("text_soft", "#6B7280")
+                    ).grid(row=1, column=1, sticky="w", pady=(0, 6))
+            else:
+                SmallLabel(
+                    self.historial_frame,
+                    Lang.get("no_checkins"),
+                    size=11,
+                    text_color=self.color("text_soft", "#6B7280")
+                ).grid(row=fila, column=0, sticky="w", padx=4, pady=6)
+                fila += 1
+
+        spacer = ctk.CTkFrame(
+            self.historial_frame,
+            fg_color="transparent",
+            height=8
+        )
+        spacer.grid(row=fila, column=0, sticky="ew")
+        fila += 1
+
+        TitleLabel(
+            self.historial_frame,
+            Lang.get("trajectory_with_specialist"),
+            size=14,
+            text_color=self.color("text", "#111827")
+        ).grid(row=fila, column=0, sticky="w", padx=4, pady=(8, 4))
+        fila += 1
+
         if not self.historial_usuario:
             SmallLabel(
                 self.historial_frame,
-                "Todavía no hay recomendaciones ni recursos registrados para este usuario por este especialista.",
-                size=12,
+                Lang.get("no_history"),
+                size=11,
                 text_color=self.color("text_soft", "#6B7280")
-            ).grid(row=0, column=0, sticky="w", padx=4, pady=12)
+            ).grid(row=fila, column=0, sticky="w", padx=4, pady=6)
             return
 
-        for fila, registro in enumerate(self.historial_usuario):
+        for registro in self.historial_usuario:
             self.crear_fila_historial(registro, fila)
+            fila += 1
 
     def crear_fila_historial(self, registro, fila):
         card = ctk.CTkFrame(
             self.historial_frame,
-            fg_color=self.color("app_bg", "#F8FAFC"),
-            corner_radius=14,
+            fg_color=self.color("card_bg", "#FFFFFF"),
+            corner_radius=12,
             border_width=1,
             border_color=self.color("card_border", "#E5E7EB")
         )
-        card.grid(row=fila, column=0, sticky="ew", padx=4, pady=5)
-        card.grid_columnconfigure(0, weight=1)
+        card.grid(row=fila, column=0, sticky="ew", padx=4, pady=4)
+        card.grid_columnconfigure(1, weight=1)
 
-        accion = str(registro.get("accion", "-")).replace("_", " ").title()
+        accion_raw = str(registro.get("accion", "-"))
+        accion = accion_raw.replace("_", " ").title()
         fecha = registro.get("fecha_evento", "-")
         actor = registro.get("actor_nombre") or "Especialista"
+
+        icon_map = {
+            "asignar_recomendacion": "📋",
+            "cargar_recurso": "📎",
+            "sugerir_musica": "🎵",
+        }
+        icono = icon_map.get(accion_raw, "📌")
+
+        ctk.CTkLabel(
+            card,
+            text=icono,
+            font=("Arial", 18)
+        ).grid(row=0, column=0, rowspan=2, padx=(12, 6), pady=10)
 
         TitleLabel(
             card,
             accion,
-            size=14,
+            size=13,
             text_color=self.color("text", "#111827")
-        ).grid(row=0, column=0, sticky="w", padx=14, pady=(10, 2))
+        ).grid(row=0, column=1, sticky="w", pady=(8, 0))
 
         SmallLabel(
             card,
-            f"{fecha} · {actor}",
-            size=11,
+            f"{fecha}  ·  {actor}",
+            size=10,
             text_color=self.color("text_soft", "#6B7280")
-        ).grid(row=1, column=0, sticky="w", padx=14, pady=(0, 4))
+        ).grid(row=1, column=1, sticky="w", pady=(0, 4))
+        card.grid_rowconfigure(2, weight=0)
 
         BodyLabel(
             card,
             registro.get("descripcion", "-"),
-            size=12,
+            size=11,
             text_color=self.color("text_soft", "#6B7280"),
-            wraplength=760
-        ).grid(row=2, column=0, sticky="w", padx=14, pady=(0, 10))
+            wraplength=740
+        ).grid(row=2, column=0, columnspan=2, sticky="w", padx=12, pady=(0, 8))
 
     # =====================================================
-    # RF-020 Y RF-022
+    # ACCIONES
     # =====================================================
 
     def validar_usuario_seleccionado(self):
@@ -929,8 +1111,7 @@ class SpecialistView(ctk.CTkFrame):
         texto = (
             f"RECOMENDACION\n"
             f"Título: {titulo}\n"
-            f"Detalle: {descripcion}\n"
-            f"Mongo ID: {self.usuario_seleccionado.get('mongo_id', '-')}"
+            f"Detalle: {descripcion}"
         )
 
         resultado = self.registrar_accion(
@@ -962,8 +1143,7 @@ class SpecialistView(ctk.CTkFrame):
             f"RECURSO\n"
             f"Título: {titulo}\n"
             f"Tipo: {tipo}\n"
-            f"Contenido: {contenido}\n"
-            f"Mongo ID: {self.usuario_seleccionado.get('mongo_id', '-')}"
+            f"Contenido: {contenido}"
         )
 
         resultado = self.registrar_accion(
@@ -1059,7 +1239,18 @@ class SpecialistView(ctk.CTkFrame):
         total = len(self.usuarios)
         activos = sum(1 for u in self.usuarios if u.get("estado") == "activa")
         recomendados = sum(1 for u in self.usuarios if u.get("ultima_recomendacion"))
-        mongo = sum(1 for u in self.usuarios if u.get("mongo_id"))
+        total_checkins = 0
+
+        try:
+            for usuario in self.usuarios:
+                summary = WellbeingController.get_specialist_user_history(
+                    self.usuario_actual,
+                    usuario.get("id_usuario")
+                )
+                if summary.get("success"):
+                    total_checkins += summary.get("resumen", {}).get("total_checkins", 0)
+        except Exception:
+            pass
 
         if self.total_label:
             self.total_label.configure(text=str(total))
@@ -1070,8 +1261,8 @@ class SpecialistView(ctk.CTkFrame):
         if self.recomendados_label:
             self.recomendados_label.configure(text=str(recomendados))
 
-        if self.mongo_label:
-            self.mongo_label.configure(text=str(mongo))
+        if hasattr(self, "total_checkins_label") and self.total_checkins_label:
+            self.total_checkins_label.configure(text=str(total_checkins))
 
     def mostrar_mensaje(self, texto, error=False):
         if not self.mensaje_label:

@@ -6,6 +6,7 @@ from PIL import Image, ImageTk
 from controllers.auth_controller import AuthController
 from utils.theme_manager import ThemeManager
 from utils.app_state import AppState
+from utils.i18n import Lang
 
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -45,8 +46,11 @@ class LoginView(ctk.CTkFrame):
 
         self.mode = "login"
 
+        Lang.set(AppState.load_language())
+
         self.load_images()
         self.create_canvas()
+        self.create_language_selector()
         self.create_login_card()
         self.bind_resize_events()
 
@@ -94,6 +98,55 @@ class LoginView(ctk.CTkFrame):
             bg=self.theme["app_bg"]
         )
         self.canvas.place(x=0, y=0, relwidth=1, relheight=1)
+
+    def create_language_selector(self):
+        self.lang_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.lang_frame.place(relx=1.0, rely=0.0, x=-20, y=16, anchor="ne")
+
+        self.lang_btn_es = ctk.CTkButton(
+            self.lang_frame,
+            text="ES",
+            width=40,
+            height=28,
+            corner_radius=8,
+            font=("Segoe UI", 11, "bold"),
+            fg_color=self.theme["accent"] if Lang.current() == "es" else self.theme["card_bg"],
+            hover_color=self.theme["button_hover"],
+            text_color="#FFFFFF" if Lang.current() == "es" else self.theme["text"],
+            border_width=1,
+            border_color=self.theme["accent"],
+            command=lambda: self.set_language("es")
+        )
+        self.lang_btn_es.grid(row=0, column=0, padx=(0, 4))
+
+        self.lang_btn_en = ctk.CTkButton(
+            self.lang_frame,
+            text="EN",
+            width=40,
+            height=28,
+            corner_radius=8,
+            font=("Segoe UI", 11, "bold"),
+            fg_color=self.theme["accent"] if Lang.current() == "en" else self.theme["card_bg"],
+            hover_color=self.theme["button_hover"],
+            text_color="#FFFFFF" if Lang.current() == "en" else self.theme["text"],
+            border_width=1,
+            border_color=self.theme["accent"],
+            command=lambda: self.set_language("en")
+        )
+        self.lang_btn_en.grid(row=0, column=1)
+
+    def set_language(self, lang):
+        Lang.set(lang)
+        AppState.save_language(lang)
+        self.lang_btn_es.configure(
+            fg_color=self.theme["accent"] if lang == "es" else self.theme["card_bg"],
+            text_color="#FFFFFF" if lang == "es" else self.theme["text"]
+        )
+        self.lang_btn_en.configure(
+            fg_color=self.theme["accent"] if lang == "en" else self.theme["card_bg"],
+            text_color="#FFFFFF" if lang == "en" else self.theme["text"]
+        )
+        self.reload_login()
 
     def bind_resize_events(self):
         self.bind("<Configure>", self.on_resize)
@@ -203,11 +256,11 @@ class LoginView(ctk.CTkFrame):
         )
 
         if self.mode == "register":
-            title_text = "Crear cuenta"
-            slogan_text = "Comienza tu espacio de bienestar"
+            title_text = Lang.get("register_title")
+            slogan_text = Lang.get("register_slogan")
         else:
-            title_text = "SoftRelief"
-            slogan_text = "Bienestar digital al alcance"
+            title_text = Lang.get("app_title")
+            slogan_text = Lang.get("slogan")
 
         self.canvas.create_text(
             width / 2,
@@ -239,7 +292,7 @@ class LoginView(ctk.CTkFrame):
         self.canvas.create_text(
             max(30, width * 0.04),
             height - 35,
-            text="Versión 1.0.0",
+            text=Lang.get("version"),
             font=("Segoe UI", footer_size),
             fill=self.theme["text_soft"],
             anchor="w",
@@ -249,7 +302,7 @@ class LoginView(ctk.CTkFrame):
         self.canvas.create_text(
             width - max(30, width * 0.04),
             height - 35,
-            text="Mauricio Olguin Núñez  •  Emiliano Mateo Correa Solis",
+            text=Lang.get("footer_credits"),
             font=("Segoe UI", footer_size),
             fill=self.theme["text"],
             anchor="e",
@@ -260,7 +313,7 @@ class LoginView(ctk.CTkFrame):
             forgot_item = self.canvas.create_text(
                 width / 2,
                 height * 0.84,
-                text="¿Olvidaste tu contraseña?",
+                text=Lang.get("forgot_password"),
                 font=("Segoe UI", footer_size),
                 fill=self.theme["accent"],
                 tags="text"
@@ -279,7 +332,7 @@ class LoginView(ctk.CTkFrame):
             self.canvas.tag_bind(
                 forgot_item,
                 "<Button-1>",
-                lambda e: self.show_message("Función pendiente.")
+                lambda e: self.show_message(Lang.get("pending_function"))
             )
 
     def cover_resize(self, image, target_width, target_height):
@@ -331,7 +384,7 @@ class LoginView(ctk.CTkFrame):
             width=320,
             height=46,
             corner_radius=14,
-            placeholder_text="Usuario",
+            placeholder_text=Lang.get("username"),
             font=("Segoe UI", 15),
             fg_color=self.theme["input_bg"],
             border_width=1,
@@ -345,7 +398,7 @@ class LoginView(ctk.CTkFrame):
             width=320,
             height=46,
             corner_radius=14,
-            placeholder_text="Contraseña",
+            placeholder_text=Lang.get("password"),
             show="●",
             font=("Segoe UI", 15),
             fg_color=self.theme["input_bg"],
@@ -357,7 +410,7 @@ class LoginView(ctk.CTkFrame):
 
         self.login_button = ctk.CTkButton(
             self.card,
-            text="Iniciar sesión",
+            text=Lang.get("login_button"),
             width=320,
             height=46,
             corner_radius=14,
@@ -370,7 +423,7 @@ class LoginView(ctk.CTkFrame):
 
         self.separator_label = ctk.CTkLabel(
             self.card,
-            text="o",
+            text=Lang.get("or"),
             font=("Segoe UI", 14),
             text_color=self.theme["text_soft"],
             fg_color=self.theme["card_bg"]
@@ -378,7 +431,7 @@ class LoginView(ctk.CTkFrame):
 
         self.create_account_button = ctk.CTkButton(
             self.card,
-            text="Crear cuenta",
+            text=Lang.get("create_account"),
             width=320,
             height=42,
             corner_radius=14,
@@ -549,26 +602,26 @@ class LoginView(ctk.CTkFrame):
 
         self.register_title = ctk.CTkLabel(
             self.card,
-            text="Crear cuenta",
+            text=Lang.get("register_title"),
             font=("Segoe UI", 22),
             text_color=self.theme["text"],
             fg_color=self.theme["card_bg"]
         )
         self.register_title.place(relx=0.5, rely=0.08, anchor="center")
 
-        self.nombre_entry = self.create_register_entry("Nombre completo", 0.19)
-        self.new_user_entry = self.create_register_entry("Usuario", 0.30)
-        self.email_entry = self.create_register_entry("Correo electrónico", 0.41)
+        self.nombre_entry = self.create_register_entry(Lang.get("full_name"), 0.19)
+        self.new_user_entry = self.create_register_entry(Lang.get("username"), 0.30)
+        self.email_entry = self.create_register_entry(Lang.get("email"), 0.41)
 
-        self.new_password_entry = self.create_register_entry("Contraseña", 0.52)
+        self.new_password_entry = self.create_register_entry(Lang.get("password"), 0.52)
         self.new_password_entry.configure(show="●")
 
-        self.confirm_password_entry = self.create_register_entry("Confirmar contraseña", 0.63)
+        self.confirm_password_entry = self.create_register_entry(Lang.get("confirm_password"), 0.63)
         self.confirm_password_entry.configure(show="●")
 
         self.register_button = ctk.CTkButton(
             self.card,
-            text="Registrar cuenta",
+            text=Lang.get("register_button"),
             width=320,
             height=40,
             corner_radius=14,
@@ -582,7 +635,7 @@ class LoginView(ctk.CTkFrame):
 
         self.back_button = ctk.CTkButton(
             self.card,
-            text="Volver",
+            text=Lang.get("back"),
             width=130,
             height=32,
             corner_radius=12,
