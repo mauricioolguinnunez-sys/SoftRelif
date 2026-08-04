@@ -18,7 +18,7 @@ from components import (
 from utils.theme_manager import ThemeManager
 from utils.app_state import AppState
 from utils.i18n import Lang
-from controllers.wellbeing_controller import WellbeingController
+from controllers.checkin_controller import CheckinController
 
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -549,7 +549,7 @@ class HomeView(ctk.CTkFrame):
         self.home_recomendacion_especialista()
 
     def last_checkin(self):
-        latest = WellbeingController.get_latest_checkin(self.current_user)
+        latest = CheckinController.get_latest_checkin(self.current_user)
         if latest:
             return latest
         if self.app and getattr(self.app, "last_checkin", None):

@@ -7,6 +7,7 @@ from controllers.auth_controller import AuthController
 from utils.theme_manager import ThemeManager
 from utils.app_state import AppState
 from utils.i18n import Lang
+from views.register_view import RegisterForm
 
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -534,13 +535,7 @@ class LoginView(ctk.CTkFrame):
             "user_entry",
             "password_entry",
             "login_button",
-            "create_account_button",
-            "nombre_entry",
-            "new_user_entry",
-            "email_entry",
-            "new_password_entry",
-            "confirm_password_entry",
-            "register_button"
+            "create_account_button"
         ]
 
         for widget_name in widgets:
@@ -554,6 +549,9 @@ class LoginView(ctk.CTkFrame):
                     )
                 except Exception:
                     pass
+
+        if hasattr(self, "register_form"):
+            self.register_form.resize(entry_width, entry_height)
 
     # =====================================================
     # LOGIN
@@ -589,122 +587,25 @@ class LoginView(ctk.CTkFrame):
             )
 
     # =====================================================
-    # FORMULARIO DE REGISTRO
+    # FORMULARIO DE REGISTRO (vista encapsulada en register_view.py)
     # =====================================================
 
     def show_register_form(self):
         self.switch_background("register")
 
-        for widget in self.card.winfo_children():
-            widget.destroy()
-
-        self.card.configure(
-            fg_color=self.theme["card_bg"],
-            border_color=self.theme["card_border"]
+        self.register_form = RegisterForm(
+            card=self.card,
+            theme_provider=lambda: self.theme,
+            on_back=self.reload_login,
+            on_success=self.reload_login
         )
-
-        self.register_title = ctk.CTkLabel(
-            self.card,
-            text=Lang.get("register_title"),
-            font=("Segoe UI", 22),
-            text_color=self.theme["text"],
-            fg_color=self.theme["card_bg"]
-        )
-        self.register_title.place(relx=0.5, rely=0.08, anchor="center")
-
-        self.nombre_entry = self.create_register_entry(Lang.get("full_name"), 0.19)
-        self.new_user_entry = self.create_register_entry(Lang.get("username"), 0.30)
-        self.email_entry = self.create_register_entry(Lang.get("email"), 0.41)
-
-        self.new_password_entry = self.create_register_entry(Lang.get("password"), 0.52)
-        self.new_password_entry.configure(show="●")
-
-        self.confirm_password_entry = self.create_register_entry(Lang.get("confirm_password"), 0.63)
-        self.confirm_password_entry.configure(show="●")
-
-        self.register_button = ctk.CTkButton(
-            self.card,
-            text=Lang.get("register_button"),
-            width=320,
-            height=40,
-            corner_radius=14,
-            font=("Segoe UI", 14),
-            fg_color=self.theme["button"],
-            hover_color=self.theme["button_hover"],
-            text_color="#FFFFFF",
-            command=self.register
-        )
-        self.register_button.place(relx=0.5, rely=0.76, anchor="center")
-
-        self.back_button = ctk.CTkButton(
-            self.card,
-            text=Lang.get("back"),
-            width=130,
-            height=32,
-            corner_radius=12,
-            fg_color=self.theme["card_bg"],
-            hover_color=self.theme["menu_hover"],
-            border_width=1,
-            border_color=self.theme["accent"],
-            text_color=self.theme["accent"],
-            command=self.reload_login
-        )
-        self.back_button.place(relx=0.5, rely=0.87, anchor="center")
-
-        self.register_message = ctk.CTkLabel(
-            self.card,
-            text="",
-            font=("Segoe UI", 12),
-            text_color=self.theme["danger"],
-            fg_color=self.theme["card_bg"]
-        )
-        self.register_message.place(relx=0.5, rely=0.95, anchor="center")
+        self.register_form.show()
 
         width = self.winfo_width()
         height = self.winfo_height()
 
         if width > 100 and height > 100:
             self.position_elements(width, height)
-
-    def create_register_entry(self, placeholder, rely):
-        entry = ctk.CTkEntry(
-            self.card,
-            width=320,
-            height=38,
-            corner_radius=13,
-            placeholder_text=placeholder,
-            font=("Segoe UI", 14),
-            fg_color=self.theme["input_bg"],
-            border_width=1,
-            border_color=self.theme["card_border"],
-            text_color=self.theme["text"],
-            placeholder_text_color=self.theme["text_soft"]
-        )
-        entry.place(relx=0.5, rely=rely, anchor="center")
-        return entry
-
-    def register(self):
-        nombre = self.nombre_entry.get().strip()
-        usuario = self.new_user_entry.get().strip()
-        correo = self.email_entry.get().strip()
-        password = self.new_password_entry.get().strip()
-        confirm_password = self.confirm_password_entry.get().strip()
-
-        result = AuthController.register(
-            nombre,
-            usuario,
-            correo,
-            password,
-            confirm_password
-        )
-
-        if result["success"]:
-            self.reload_login()
-        else:
-            self.register_message.configure(
-                text=result["message"],
-                text_color=self.theme["danger"]
-            )
 
     def reload_login(self):
         self.app.show_login()

@@ -1,3 +1,4 @@
+from models.preference_model import PreferenceModel
 from models.user_model import UserModel
 
 
@@ -66,7 +67,7 @@ class UserController:
                 "message": "Tema no válido."
             }
 
-        return UserModel.update_theme(current_user.get("id_usuario"), theme)
+        return PreferenceModel.update_theme(current_user.get("id_usuario"), theme)
 
     @staticmethod
     def get_account_settings(current_user):
@@ -123,4 +124,4 @@ class UserController:
                 "message": "Idioma no válido."
             }
 
-        return UserModel.update_language(current_user.get("id_usuario"), idioma)
+        return PreferenceModel.update_language(current_user.get("id_usuario"), idioma)

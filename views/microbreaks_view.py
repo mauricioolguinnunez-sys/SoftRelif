@@ -296,6 +296,8 @@ class MicrobreaksView(ctk.CTkFrame):
                 filters,
                 text=Lang.get(lang_key),
                 height=38,
+                border_width=1,
+                border_color=self.c("card_border", "#E5E7EB"),
                 command=lambda k=key: self.select_category(k)
             )
             btn.grid(row=0, column=index, padx=(0, 10), sticky="ew")
@@ -505,6 +507,7 @@ class MicrobreaksView(ctk.CTkFrame):
             button.configure(
                 fg_color=self.c("accent_soft", "#EDE9FE") if selected else self.c("card_bg", "#FFFFFF"),
                 text_color=self.c("accent", "#7C3AED") if selected else self.c("text", "#1E1B4B"),
+                border_width=1,
                 border_color=self.c("accent", "#7C3AED") if selected else self.c("card_border", "#E5E7EB")
             )
 

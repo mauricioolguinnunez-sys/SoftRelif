@@ -1,4 +1,6 @@
+import traceback
 import customtkinter as ctk
+import tkinter as tk
 from tkinter import messagebox
 
 from database.schema import create_tables
@@ -22,6 +24,11 @@ class SoftReliefApp(ctk.CTk):
     - Cambiar entre LoginView y HomeView.
     - Detener música al cerrar sesión o regresar al login.
     """
+
+    def report_callback_exception(self, exc, val, tb):
+        if isinstance(val, tk.TclError) and "bad window path name" in str(val):
+            return
+        traceback.print_exception(exc, val, tb)
 
     def __init__(self):
         super().__init__()

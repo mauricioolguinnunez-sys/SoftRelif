@@ -1,0 +1,926 @@
+DOCUMENTACIÓN BASE DE DATOS SOFTRELIEF - VERSIÓN SINCRONIZADA CON LA IMPLEMENTACIÓN
+===================================================================================
+Fuente de verdad: database/schema.py, models/user_model.py, views/superuser_view.py,
+                  views/specialist_view.py, views/sounds_view.py
+Esta documentación reemplaza y corrige la versión anterior (UNIDAD 3 - BASE DE DATOS).
+Todo lo aquí descrito coincide EXACTAMENTE con el código real de la aplicación.
+
+ESTRUCTURA DE MÓDULOS ACTUAL (refactor de archivos vacíos, 2026-08-03):
+  models/user_model.py          -> cuentas, auth, bitácora (MySQL)
+  models/preference_model.py    -> preferencias visuales: tema e idioma (MySQL)
+  models/checkin_model.py       -> check-ins emocionales (MongoDB)
+  models/wellbeing_model.py     -> configuración musical (MongoDB)
+  controllers/auth_controller.py    -> validación y delegación de login/registro
+  controllers/user_controller.py    -> administración de cuentas
+  controllers/checkin_controller.py -> check-ins emocionales
+  controllers/wellbeing_controller.py -> solo música
+  utils/constants.py            -> constantes globales (emails, estados, temas)
+  utils/validation_utils.py     -> validaciones de campos de registro
+  utils/date_utils.py           -> helpers de fecha (now_str, today_str)
+  views/register_view.py        -> formulario de registro (RegisterForm)
+  views/breathing_view.py       -> lienzo de respiración (BreathingCanvas)
+
+
+
+#################### 1. ALCANCE Y ARQUITECTURA ####################
+
+SoftRelief usa una arquitectura híbrida de almacenamiento:
+
+- MySQL (softrelief): identidad, acceso, roles, permisos, estados de cuenta,
+  preferencias visuales y bitácora de auditoría. Es la parte formal y relacional.
+- MongoDB (wellbeing): documentos históricos por id_usuario con check-ins
+  emocionales, música (favoritos, pistas), microdescansos y resúmenes de bienestar.
+
+El presente documento cubre únicamente el componente MySQL.
+
+
+#################### 2. RECOMENDACIONES (CORRECCIONES RESPECTO A LA DOCUMENTACIÓN ANTERIOR) ####################
+
+1. ESTADOS DE CUENTA: La documentación anterior declaraba 4 estados
+   (Activo, Suspendido, Bloqueado, Inactivo). La implementación real solo usa 2:
+   activa y restringida. Actualizar el enunciado a estos 2 únicos estados.
+
+2. CAMPOS INEXISTENTES EN USUARIO: ap_paterno, ap_materno, fecha_ultimo_acceso y
+   password_hash NO existen en la tabla real. La tabla usa un solo campo nombre
+   (VARCHAR 120) y la columna de contraseña se llama contrasena (VARCHAR 255).
+
+3. PREFERENCIA_VISUAL: El diccionario anterior decía tema_visual (VARCHAR).
+   La implementación usa id_tema (FK hacia TEMA) + tamano_fuente +
+   modo_visualizacion + idioma. No existe la columna tema_visual.
+
+4. PERMISOS: La documentación omitía marcar_seguimiento (RF-21) y documentaba
+   sugerir_musica como permiso del especialista (existe en el código actual).
+   El permiso consultar_historial_bienestar NO está asignado a superuser en la
+   implementación real (solo al especialista). Total real: 16 permisos.
+
+5. CONTRASEÑAS: La implementación inserta los usuarios base con hash SHA-256
+   (utils/password_utils.py), NO en texto plano. Documentar que los valores
+   'admin123' y 'especialista123' son contraseñas de prueba que se almacenan
+   cifradas. Recomendación futura: migrar a bcrypt/Argon2.
+
+6. BITACORA_CUENTA: El campo id_admin almacena al actor que ejecutó la acción
+   (puede ser superuser o especialista). Aunque funciona, se recomienda
+   renombrarlo a id_actor para reflejar mejor su papel en el MER/MR.
+
+7. BUG CORREGIDO (18/03/2026): models/user_model.py, método delete_user (línea 1168)
+   ejecutaba "DELETE FROM usuarios" (tabla incorrecta, no existe). Ya corregido a
+   "DELETE FROM usuario" y ahora también elimina la preferencia_visual asociada
+   para no dejar registros huérfanos (igual que views/superuser_view.py).
+
+8. TIPOS REALES: fecha_registro es DATE (no DATETIME). permiso.nombre es
+   VARCHAR(80) (no 100). tema.nombre es VARCHAR(30) (no 50). bitacora.accion
+   es VARCHAR(80) y bitacora.descripcion es VARCHAR(255) (no TEXT).
+
+9. ATRIBUTOS PARA EL MER (los que SÍ se pueden demostrar en el modelo real):
+   - Simple: nombre, correo, contrasena, fecha_registro.
+   - Derivado: antiguedad_cuenta (calculable desde fecha_registro).
+   - Opcional: id_admin e id_usuario en bitacora_cuenta (NULL permitido).
+   - Asociado a relación: las columnas id_rol / id_permiso de rol_permiso.
+   - No documentar apellidos compuestos ni atributos multivaluados, porque la
+     implementación no los tiene. No inventar atributos solo para la rúbrica.
+
+
+#################### 3. MODELO ENTIDAD-RELACIÓN (MER) ####################
+
+ENTIDADES Y ATRIBUTOS (exactos a la implementación):
+
+ESTADO_CUENTA (id_estado, nombre, descripcion)
+ROL          (id_rol, nombre, descripcion)
+PERMISO      (id_permiso, nombre, descripcion)
+TEMA         (id_tema, nombre, descripcion)
+PREFERENCIA_VISUAL (id_preferencia, id_tema, tamano_fuente, modo_visualizacion, idioma)
+USUARIO      (id_usuario, nombre, correo, contrasena, fecha_registro,
+              id_rol, id_estado, id_preferencia)
+BITACORA_CUENTA (id_bitacora, id_admin, id_usuario, accion, descripcion, fecha_evento)
+
+RELACIONES Y CARDINALIDADES:
+- ROL contiene PERMISO            : N:M (se resuelve con ROL_PERMISO)
+- ROL clasifica USUARIO           : 1:N
+- ESTADO_CUENTA asigna USUARIO    : 1:N
+- TEMA define PREFERENCIA_VISUAL  : 1:N
+- USUARIO posee PREFERENCIA_VISUAL: 1:1 (id_preferencia UNIQUE en usuario)
+- USUARIO realiza BITACORA_CUENTA : 1:N (papel actor, id_admin)
+- USUARIO es_afectado_por BITACORA_CUENTA: 1:N (papel afectado, id_usuario)
+
+TOTAL: 8 entidades, 7 relaciones (1 N:M, 2 1:N de bitácora, 1 1:1, 3 1:N).
+
+
+#################### 4. MODELO RELACIONAL (MR) NORMALIZADO ####################
+
+ESTADO_CUENTA(
+  id_estado    INT PK AUTO_INCREMENT,
+  nombre       VARCHAR(50)  NOT NULL UNIQUE,
+  descripcion  VARCHAR(255) NOT NULL
+)
+
+ROL(
+  id_rol       INT PK AUTO_INCREMENT,
+  nombre       VARCHAR(50)  NOT NULL UNIQUE,
+  descripcion  VARCHAR(255) NOT NULL
+)
+
+PERMISO(
+  id_permiso   INT PK AUTO_INCREMENT,
+  nombre       VARCHAR(80)  NOT NULL UNIQUE,
+  descripcion  VARCHAR(255) NOT NULL
+)
+
+ROL_PERMISO(
+  id_rol       INT PK, FK -> ROL(id_rol)      ON DELETE CASCADE ON UPDATE CASCADE,
+  id_permiso   INT PK, FK -> PERMISO(id_permiso) ON DELETE CASCADE ON UPDATE CASCADE
+)
+
+TEMA(
+  id_tema      INT PK AUTO_INCREMENT,
+  nombre       VARCHAR(30)  NOT NULL UNIQUE,
+  descripcion  VARCHAR(255) NOT NULL
+)
+
+PREFERENCIA_VISUAL(
+  id_preferencia     INT PK AUTO_INCREMENT,
+  id_tema            INT NOT NULL FK -> TEMA(id_tema) ON DELETE RESTRICT ON UPDATE CASCADE,
+  tamano_fuente      VARCHAR(30) NOT NULL DEFAULT 'normal',
+  modo_visualizacion VARCHAR(30) NOT NULL DEFAULT 'estandar',
+  idioma             VARCHAR(10) NOT NULL DEFAULT 'es'
+)
+
+USUARIO(
+  id_usuario     INT PK AUTO_INCREMENT,
+  nombre         VARCHAR(120) NOT NULL,
+  correo         VARCHAR(150) NOT NULL UNIQUE,
+  contrasena     VARCHAR(255) NOT NULL,   -- almacena hash SHA-256
+  fecha_registro DATE         NOT NULL,
+  id_rol         INT NOT NULL FK -> ROL(id_rol)             ON DELETE RESTRICT ON UPDATE CASCADE,
+  id_estado      INT NOT NULL FK -> ESTADO_CUENTA(id_estado) ON DELETE RESTRICT ON UPDATE CASCADE,
+  id_preferencia INT NOT NULL UNIQUE FK -> PREFERENCIA_VISUAL(id_preferencia)
+                    ON DELETE RESTRICT ON UPDATE CASCADE
+)
+
+BITACORA_CUENTA(
+  id_bitacora  INT PK AUTO_INCREMENT,
+  id_admin     INT NULL FK -> USUARIO(id_usuario) ON DELETE SET NULL ON UPDATE CASCADE,
+  id_usuario   INT NULL FK -> USUARIO(id_usuario) ON DELETE SET NULL ON UPDATE CASCADE,
+  accion       VARCHAR(80)  NOT NULL,
+  descripcion  VARCHAR(255) NOT NULL,
+  fecha_evento DATETIME     NOT NULL
+)
+
+
+#################### 5. DICCIONARIO DE DATOS ####################
+
+ESTADO_CUENTA
+  id_estado    | INT         | PK       | Identificador del estado.
+  nombre       | VARCHAR(50) | UNIQUE   | Nombre del estado (activa, restringida).
+  descripcion  | VARCHAR(255)| -        | Descripción del estado de la cuenta.
+
+ROL
+  id_rol       | INT         | PK       | Identificador del rol.
+  nombre       | VARCHAR(50) | UNIQUE   | Nombre del rol (usuario, especialista, superuser).
+  descripcion  | VARCHAR(255)| -        | Descripción del rol y sus funciones.
+
+PERMISO
+  id_permiso   | INT         | PK       | Identificador del permiso.
+  nombre       | VARCHAR(80) | UNIQUE   | Nombre del permiso.
+  descripcion  | VARCHAR(255)| -        | Descripción del permiso.
+
+ROL_PERMISO
+  id_rol       | INT         | PK, FK   | Rol al que se asigna el permiso.
+  id_permiso   | INT         | PK, FK   | Permiso asignado al rol.
+
+TEMA
+  id_tema      | INT         | PK       | Identificador del tema.
+  nombre       | VARCHAR(30) | UNIQUE   | Nombre del tema (light, dark).
+  descripcion  | VARCHAR(255)| -        | Descripción del tema visual.
+
+PREFERENCIA_VISUAL
+  id_preferencia     | INT          | PK       | Identificador de la preferencia visual.
+  id_tema            | INT          | FK       | Tema visual seleccionado (light/dark).
+  tamano_fuente      | VARCHAR(30)  | -        | Tamaño de fuente (normal).
+  modo_visualizacion | VARCHAR(30)  | -        | Modo de visualización (estandar).
+  idioma             | VARCHAR(10)  | -        | Idioma de la interfaz (es, en).
+
+USUARIO
+  id_usuario     | INT          | PK       | Identificador del usuario.
+  nombre         | VARCHAR(120) | -        | Nombre completo del usuario.
+  correo         | VARCHAR(150) | UNIQUE   | Correo electrónico del usuario.
+  contrasena     | VARCHAR(255) | -        | Contraseña cifrada (hash SHA-256).
+  fecha_registro | DATE         | -        | Fecha en que se registró el usuario.
+  id_rol         | INT          | FK       | Rol asignado al usuario.
+  id_estado      | INT          | FK       | Estado actual de la cuenta.
+  id_preferencia | INT          | FK,UNIQUE| Preferencia visual del usuario.
+
+BITACORA_CUENTA
+  id_bitacora  | INT          | PK       | Identificador del registro de bitácora.
+  id_admin     | INT          | FK, NULL | Actor (superuser o especialista) que ejecutó la acción.
+  id_usuario   | INT          | FK, NULL | Usuario afectado por la acción.
+  accion       | VARCHAR(80)  | -        | Acción realizada (asignar_recomendacion, cargar_recurso, sugerir_musica, marcar_seguimiento, eliminar, activa, restringida).
+  descripcion  | VARCHAR(255) | -        | Descripción detallada de la acción.
+  fecha_evento | DATETIME     | -        | Fecha y hora del evento.
+
+CATÁLOGOS INSERTADOS (schema.py -> insertar_catalogos_base):
+  ESTADO_CUENTA: activa, restringida.
+  ROL: usuario, especialista, superuser.
+  TEMA: light, dark.
+  PERMISO (16): checkin, modo_calma, sonidos, microdescansos, historial,
+    configuracion, panel_especialista, trayectoria_usuario,
+    asignar_recomendacion, marcar_seguimiento, cargar_recurso,
+    gestionar_usuarios, moderar_usuarios, gestionar_roles,
+    consultar_historial_bienestar, sugerir_musica.
+
+ASIGNACIÓN DE PERMISOS POR ROL (schema.py -> asignar_permisos_base):
+  usuario      : checkin, modo_calma, sonidos, microdescansos, historial, configuracion.
+  especialista : panel_especialista, trayectoria_usuario, asignar_recomendacion,
+                 marcar_seguimiento, cargar_recurso, sugerir_musica,
+                 consultar_historial_bienestar, configuracion.
+  superuser    : gestionar_usuarios, moderar_usuarios, gestionar_roles, configuracion.
+
+USUARIOS BASE (schema.py -> crear_usuario_sistema):
+  superuser@softrelief.local   rol superuser    contraseña temporal: admin123 (cifrada en BD)
+  especialista@softrelief.local rol especialista contraseña temporal: especialista123 (cifrada en BD)
+
+
+#################### 6. QUERY DDL (SCRIPT COMPLETO SINCRONIZADO) ####################
+
+-- Base de datos
+CREATE DATABASE IF NOT EXISTS softrelief
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
+
+USE softrelief;
+
+-- =====================================================
+-- TABLA: estado_cuenta
+-- =====================================================
+CREATE TABLE IF NOT EXISTS estado_cuenta (
+   id_estado INT AUTO_INCREMENT PRIMARY KEY,
+   nombre VARCHAR(50) NOT NULL UNIQUE,
+   descripcion VARCHAR(255) NOT NULL
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
+
+-- =====================================================
+-- TABLA: rol
+-- =====================================================
+CREATE TABLE IF NOT EXISTS rol (
+   id_rol INT AUTO_INCREMENT PRIMARY KEY,
+   nombre VARCHAR(50) NOT NULL UNIQUE,
+   descripcion VARCHAR(255) NOT NULL
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
+
+-- =====================================================
+-- TABLA: permiso
+-- =====================================================
+CREATE TABLE IF NOT EXISTS permiso (
+   id_permiso INT AUTO_INCREMENT PRIMARY KEY,
+   nombre VARCHAR(80) NOT NULL UNIQUE,
+   descripcion VARCHAR(255) NOT NULL
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
+
+-- =====================================================
+-- TABLA: rol_permiso (relación N:M rol-permiso)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS rol_permiso (
+  id_rol INT NOT NULL,
+  id_permiso INT NOT NULL,
+
+  PRIMARY KEY (id_rol, id_permiso),
+
+  CONSTRAINT fk_rol_permiso_rol
+    FOREIGN KEY (id_rol)
+    REFERENCES rol(id_rol)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
+
+  CONSTRAINT fk_rol_permiso_permiso
+    FOREIGN KEY (id_permiso)
+    REFERENCES permiso(id_permiso)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
+
+-- =====================================================
+-- TABLA: tema
+-- =====================================================
+CREATE TABLE IF NOT EXISTS tema (
+   id_tema INT AUTO_INCREMENT PRIMARY KEY,
+   nombre VARCHAR(30) NOT NULL UNIQUE,
+   descripcion VARCHAR(255) NOT NULL
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
+
+-- =====================================================
+-- TABLA: preferencia_visual
+-- =====================================================
+CREATE TABLE IF NOT EXISTS preferencia_visual (
+  id_preferencia INT AUTO_INCREMENT PRIMARY KEY,
+  id_tema INT NOT NULL,
+  tamano_fuente VARCHAR(30) NOT NULL DEFAULT 'normal',
+  modo_visualizacion VARCHAR(30) NOT NULL DEFAULT 'estandar',
+  idioma VARCHAR(10) NOT NULL DEFAULT 'es',
+
+  CONSTRAINT fk_preferencia_tema
+    FOREIGN KEY (id_tema)
+    REFERENCES tema(id_tema)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
+
+-- =====================================================
+-- TABLA: usuario
+-- =====================================================
+CREATE TABLE IF NOT EXISTS usuario (
+  id_usuario INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(120) NOT NULL,
+  correo VARCHAR(150) NOT NULL UNIQUE,
+  contrasena VARCHAR(255) NOT NULL,
+  fecha_registro DATE NOT NULL,
+  id_rol INT NOT NULL,
+  id_estado INT NOT NULL,
+  id_preferencia INT NOT NULL UNIQUE,
+
+  CONSTRAINT fk_usuario_rol
+    FOREIGN KEY (id_rol)
+    REFERENCES rol(id_rol)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT,
+
+  CONSTRAINT fk_usuario_estado
+    FOREIGN KEY (id_estado)
+    REFERENCES estado_cuenta(id_estado)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT,
+
+  CONSTRAINT fk_usuario_preferencia
+    FOREIGN KEY (id_preferencia)
+    REFERENCES preferencia_visual(id_preferencia)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
+
+-- =====================================================
+-- TABLA: bitacora_cuenta
+-- =====================================================
+CREATE TABLE IF NOT EXISTS bitacora_cuenta (
+  id_bitacora INT AUTO_INCREMENT PRIMARY KEY,
+  id_admin INT NULL,
+  id_usuario INT NULL,
+  accion VARCHAR(80) NOT NULL,
+  descripcion VARCHAR(255) NOT NULL,
+  fecha_evento DATETIME NOT NULL,
+
+  CONSTRAINT fk_bitacora_admin
+    FOREIGN KEY (id_admin)
+    REFERENCES usuario(id_usuario)
+    ON UPDATE CASCADE
+    ON DELETE SET NULL,
+
+  CONSTRAINT fk_bitacora_usuario
+    FOREIGN KEY (id_usuario)
+    REFERENCES usuario(id_usuario)
+    ON UPDATE CASCADE
+    ON DELETE SET NULL
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
+
+-- =====================================================
+-- INSERTS BASE: estados
+-- =====================================================
+INSERT IGNORE INTO estado_cuenta (nombre, descripcion) VALUES
+('activa', 'Cuenta activa con acceso permitido al sistema.'),
+('restringida', 'Cuenta limitada por decisión administrativa.');
+
+-- =====================================================
+-- INSERTS BASE: roles
+-- =====================================================
+INSERT IGNORE INTO rol (nombre, descripcion) VALUES
+('usuario', 'Usuario regular con acceso a funciones de bienestar personal.'),
+('especialista', 'Usuario encargado de asesoría, seguimiento y recursos.'),
+('superuser', 'Administrador principal del sistema.');
+
+-- =====================================================
+-- INSERTS BASE: temas
+-- =====================================================
+INSERT IGNORE INTO tema (nombre, descripcion) VALUES
+('light', 'Tema visual claro.'),
+('dark', 'Tema visual oscuro.');
+
+-- =====================================================
+-- INSERTS BASE: permisos (16)
+-- =====================================================
+INSERT IGNORE INTO permiso (nombre, descripcion) VALUES
+('checkin', 'Permite registrar check-in emocional.'),
+('modo_calma', 'Permite acceder al modo calma.'),
+('sonidos', 'Permite acceder a sonidos ambientales.'),
+('microdescansos', 'Permite realizar microdescansos.'),
+('historial', 'Permite consultar historial personal.'),
+('configuracion', 'Permite modificar preferencias visuales.'),
+('panel_especialista', 'Permite acceder al panel especialista.'),
+('trayectoria_usuario', 'Permite consultar trayectoria de usuarios.'),
+('asignar_recomendacion', 'Permite asignar recomendaciones.'),
+('marcar_seguimiento', 'Permite marcar seguimiento.'),
+('cargar_recurso', 'Permite cargar recursos de apoyo.'),
+('gestionar_usuarios', 'Permite administrar cuentas.'),
+('moderar_usuarios', 'Permite activar, restringir o eliminar usuarios.'),
+('gestionar_roles', 'Permite gestionar roles y permisos.'),
+('consultar_historial_bienestar', 'Permite consultar el historial de bienestar en MongoDB.'),
+('sugerir_musica', 'Permite sugerir música a usuarios.');
+
+-- =====================================================
+-- ASIGNACIÓN DE PERMISOS AL ROL usuario
+-- =====================================================
+INSERT IGNORE INTO rol_permiso (id_rol, id_permiso)
+SELECT r.id_rol, p.id_permiso
+FROM rol r
+INNER JOIN permiso p
+WHERE r.nombre = 'usuario'
+AND p.nombre IN (
+   'checkin', 'modo_calma', 'sonidos', 'microdescansos', 'historial', 'configuracion'
+);
+
+-- =====================================================
+-- ASIGNACIÓN DE PERMISOS AL ROL especialista
+-- =====================================================
+INSERT IGNORE INTO rol_permiso (id_rol, id_permiso)
+SELECT r.id_rol, p.id_permiso
+FROM rol r
+INNER JOIN permiso p
+WHERE r.nombre = 'especialista'
+AND p.nombre IN (
+   'panel_especialista', 'trayectoria_usuario', 'asignar_recomendacion',
+   'marcar_seguimiento', 'cargar_recurso', 'sugerir_musica',
+   'consultar_historial_bienestar', 'configuracion'
+);
+
+-- =====================================================
+-- ASIGNACIÓN DE PERMISOS AL ROL superuser
+-- =====================================================
+INSERT IGNORE INTO rol_permiso (id_rol, id_permiso)
+SELECT r.id_rol, p.id_permiso
+FROM rol r
+INNER JOIN permiso p
+WHERE r.nombre = 'superuser'
+AND p.nombre IN (
+   'gestionar_usuarios', 'moderar_usuarios', 'gestionar_roles', 'configuracion'
+);
+
+-- =====================================================
+-- USUARIOS BASE (la contraseña se inserta cifrada con SHA-256,
+-- nunca en texto plano; la app usa utils/password_utils.py)
+-- =====================================================
+
+-- Superuser: preferencia visual (tema dark)
+INSERT INTO preferencia_visual (id_tema, tamano_fuente, modo_visualizacion, idioma)
+SELECT t.id_tema, 'normal', 'estandar', 'es'
+FROM tema t
+WHERE t.nombre = 'dark'
+AND NOT EXISTS (
+   SELECT 1 FROM usuario u WHERE u.correo = 'superuser@softrelief.local'
+);
+
+INSERT INTO usuario (nombre, correo, contrasena, fecha_registro, id_rol, id_estado, id_preferencia)
+SELECT 'Superuser SoftRelief', 'superuser@softrelief.local', SHA2('admin123', 256),
+       CURDATE(), r.id_rol, e.id_estado, pv.id_preferencia
+FROM rol r
+INNER JOIN estado_cuenta e
+INNER JOIN preferencia_visual pv
+WHERE r.nombre = 'superuser'
+AND e.nombre = 'activa'
+AND pv.id_preferencia = (SELECT MAX(id_preferencia) FROM preferencia_visual)
+AND NOT EXISTS (
+   SELECT 1 FROM usuario u WHERE u.correo = 'superuser@softrelief.local'
+);
+
+-- Especialista: preferencia visual (tema light)
+INSERT INTO preferencia_visual (id_tema, tamano_fuente, modo_visualizacion, idioma)
+SELECT t.id_tema, 'normal', 'estandar', 'es'
+FROM tema t
+WHERE t.nombre = 'light'
+AND NOT EXISTS (
+   SELECT 1 FROM usuario u WHERE u.correo = 'especialista@softrelief.local'
+);
+
+INSERT INTO usuario (nombre, correo, contrasena, fecha_registro, id_rol, id_estado, id_preferencia)
+SELECT 'Especialista SoftRelief', 'especialista@softrelief.local', SHA2('especialista123', 256),
+       CURDATE(), r.id_rol, e.id_estado, pv.id_preferencia
+FROM rol r
+INNER JOIN estado_cuenta e
+INNER JOIN preferencia_visual pv
+WHERE r.nombre = 'especialista'
+AND e.nombre = 'activa'
+AND pv.id_preferencia = (SELECT MAX(id_preferencia) FROM preferencia_visual)
+AND NOT EXISTS (
+   SELECT 1 FROM usuario u WHERE u.correo = 'especialista@softrelief.local'
+);
+
+-- NOTA: en la app real el hash lo genera Python (hashlib.sha256),
+-- no el servidor MySQL. SHA2('...', 256) aquí es solo representativo.
+
+
+#################### 7. QUERY DQL (TODAS LAS CONSULTAS DE LA APP) ####################
+
+-- =====================================================
+-- A) AUTENTICACIÓN (models/user_model.py)
+-- =====================================================
+
+-- Q-AUTH-01: Login por correo o nombre de usuario (get_user_by_username_or_email)
+SELECT
+    u.id_usuario,
+    u.nombre,
+    u.correo,
+    u.contrasena AS password_hash,
+    u.fecha_registro,
+    r.nombre AS rol,
+    ec.nombre AS estado,
+    pv.id_preferencia,
+    t.nombre AS tema_visual,
+    pv.tamano_fuente,
+    pv.modo_visualizacion,
+    COALESCE(pv.idioma, 'es') AS idioma
+FROM usuario u
+LEFT JOIN rol r ON u.id_rol = r.id_rol
+LEFT JOIN estado_cuenta ec ON u.id_estado = ec.id_estado
+LEFT JOIN preferencia_visual pv ON u.id_preferencia = pv.id_preferencia
+LEFT JOIN tema t ON pv.id_tema = t.id_tema
+WHERE LOWER(TRIM(u.correo)) = LOWER(TRIM(%s))
+   OR LOWER(TRIM(u.nombre)) = LOWER(TRIM(%s))
+LIMIT 1;
+
+-- Q-AUTH-02: Verificar que exista el usuario por correo (username_exists)
+SELECT id_usuario
+FROM usuario
+WHERE correo = %s
+LIMIT 1;
+
+-- Q-AUTH-03: Verificar que exista el correo (email_exists)
+SELECT id_usuario
+FROM usuario
+WHERE correo = %s
+LIMIT 1;
+
+-- =====================================================
+-- B) CONSULTAS DE USUARIOS (models/user_model.py)
+-- =====================================================
+
+-- Q-USR-01: Usuario por ID (get_user_by_id)
+SELECT
+    u.id_usuario,
+    u.nombre,
+    u.correo,
+    u.fecha_registro,
+    r.nombre AS rol,
+    ec.nombre AS estado,
+    t.nombre AS tema_visual,
+    pv.tamano_fuente,
+    pv.modo_visualizacion,
+    COALESCE(pv.idioma, 'es') AS idioma
+FROM usuario u
+LEFT JOIN rol r ON u.id_rol = r.id_rol
+LEFT JOIN estado_cuenta ec ON u.id_estado = ec.id_estado
+LEFT JOIN preferencia_visual pv ON u.id_preferencia = pv.id_preferencia
+LEFT JOIN tema t ON pv.id_tema = t.id_tema
+WHERE u.id_usuario = %s
+LIMIT 1;
+
+-- Q-USR-02: Todos los usuarios (get_all_users - SuperuserView)
+SELECT
+    u.id_usuario,
+    u.nombre,
+    u.correo,
+    u.correo AS usuario,
+    u.fecha_registro,
+    COALESCE(r.nombre, 'sin_rol') AS rol,
+    COALESCE(ec.nombre, 'sin_estado') AS estado,
+    pv.id_preferencia,
+    COALESCE(t.nombre, 'light') AS tema_visual,
+    COALESCE(pv.tamano_fuente, 'normal') AS tamano_fuente,
+    COALESCE(pv.modo_visualizacion, 'estandar') AS modo_visualizacion,
+    COALESCE(pv.idioma, 'es') AS idioma
+FROM usuario u
+LEFT JOIN rol r ON u.id_rol = r.id_rol
+LEFT JOIN estado_cuenta ec ON u.id_estado = ec.id_estado
+LEFT JOIN preferencia_visual pv ON u.id_preferencia = pv.id_preferencia
+LEFT JOIN tema t ON pv.id_tema = t.id_tema
+ORDER BY u.id_usuario DESC;
+
+-- Q-USR-03: Usuarios comunes para el panel del especialista
+-- (get_common_users_for_specialist): lista usuarios rol 'usuario',
+-- cuenta acciones del especialista sobre cada uno y muestra la última
+-- recomendación asignada.
+SELECT
+    u.id_usuario,
+    u.nombre,
+    u.correo,
+    u.correo AS usuario,
+    u.fecha_registro,
+    COALESCE(r.nombre, 'sin_rol') AS rol,
+    COALESCE(ec.nombre, 'sin_estado') AS estado,
+    pv.id_preferencia,
+    COALESCE(t.nombre, 'light') AS tema_visual,
+    COALESCE(pv.tamano_fuente, 'normal') AS tamano_fuente,
+    COALESCE(pv.modo_visualizacion, 'estandar') AS modo_visualizacion,
+    COALESCE(pv.idioma, 'es') AS idioma,
+    COUNT(b.id_bitacora) AS acciones_especialista,
+    MAX(
+        CASE
+            WHEN b.accion = 'asignar_recomendacion'
+            THEN b.fecha_evento
+            ELSE NULL
+        END
+    ) AS ultima_recomendacion
+FROM usuario u
+LEFT JOIN rol r ON u.id_rol = r.id_rol
+LEFT JOIN estado_cuenta ec ON u.id_estado = ec.id_estado
+LEFT JOIN preferencia_visual pv ON u.id_preferencia = pv.id_preferencia
+LEFT JOIN tema t ON pv.id_tema = t.id_tema
+LEFT JOIN bitacora_cuenta b
+    ON b.id_usuario = u.id_usuario
+    AND b.id_admin = %s
+    AND b.accion IN ('asignar_recomendacion', 'cargar_recurso')
+WHERE r.nombre = 'usuario'
+GROUP BY
+    u.id_usuario, u.nombre, u.correo, u.fecha_registro,
+    r.nombre, ec.nombre, pv.id_preferencia, t.nombre,
+    pv.tamano_fuente, pv.modo_visualizacion, pv.idioma
+ORDER BY u.id_usuario DESC;
+
+-- Q-USR-04: Detalle de usuario (get_user_detail)
+SELECT
+    u.id_usuario,
+    u.nombre,
+    u.correo,
+    u.correo AS usuario,
+    u.fecha_registro,
+    COALESCE(r.nombre, 'sin_rol') AS rol,
+    COALESCE(ec.nombre, 'sin_estado') AS estado,
+    pv.id_preferencia,
+    COALESCE(t.nombre, 'light') AS tema_visual,
+    COALESCE(pv.tamano_fuente, 'normal') AS tamano_fuente,
+    COALESCE(pv.modo_visualizacion, 'estandar') AS modo_visualizacion,
+    COALESCE(pv.idioma, 'es') AS idioma
+FROM usuario u
+LEFT JOIN rol r ON u.id_rol = r.id_rol
+LEFT JOIN estado_cuenta ec ON u.id_estado = ec.id_estado
+LEFT JOIN preferencia_visual pv ON u.id_preferencia = pv.id_preferencia
+LEFT JOIN tema t ON pv.id_tema = t.id_tema
+WHERE u.id_usuario = %s
+LIMIT 1;
+
+-- Q-USR-05: Datos de cuenta para SettingsView (get_account_settings)
+-- Variante 1: si la columna usuario.usuario existe en la BD
+SELECT
+    u.id_usuario,
+    u.nombre,
+    u.usuario AS nombre_usuario,
+    u.correo,
+    u.fecha_registro,
+    r.nombre AS rol,
+    ec.nombre AS estado,
+    t.nombre AS tema_visual,
+    pv.tamano_fuente,
+    pv.modo_visualizacion,
+    COALESCE(pv.idioma, 'es') AS idioma
+FROM usuario u
+LEFT JOIN rol r ON u.id_rol = r.id_rol
+LEFT JOIN estado_cuenta ec ON u.id_estado = ec.id_estado
+LEFT JOIN preferencia_visual pv ON u.id_preferencia = pv.id_preferencia
+LEFT JOIN tema t ON pv.id_tema = t.id_tema
+WHERE u.id_usuario = %s
+LIMIT 1;
+
+-- Q-USR-05b: Variante 2 (sin columna usuario): el nombre de usuario
+-- se deriva del correo (SUBSTRING_INDEX). Solo cambia la primera columna:
+SELECT SUBSTRING_INDEX(u.correo, '@', 1) AS nombre_usuario ...
+
+-- =====================================================
+-- C) BITÁCORA (models/user_model.py + views/sounds_view.py)
+-- =====================================================
+
+-- Q-BIT-01: Historial de acciones del especialista sobre un usuario
+-- (get_history_for_specialist): trayectoria con acciones
+-- asignar_recomendacion y cargar_recurso.
+SELECT
+    b.id_bitacora,
+    b.accion,
+    b.descripcion,
+    b.fecha_evento,
+    actor.nombre AS actor_nombre,
+    actor.correo AS actor_correo
+FROM bitacora_cuenta b
+LEFT JOIN usuario actor ON b.id_admin = actor.id_usuario
+WHERE b.id_usuario = %s
+  AND b.id_admin = %s
+  AND b.accion IN ('asignar_recomendacion', 'cargar_recurso')
+ORDER BY b.fecha_evento DESC
+LIMIT 50;
+
+-- Q-BIT-02: Última recomendación asignada a un usuario (HomeView)
+SELECT
+    b.id_bitacora,
+    b.descripcion,
+    b.fecha_evento,
+    especialista.nombre AS especialista_nombre,
+    especialista.correo AS especialista_correo
+FROM bitacora_cuenta b
+LEFT JOIN usuario especialista ON b.id_admin = especialista.id_usuario
+WHERE b.id_usuario = %s
+  AND b.accion = 'asignar_recomendacion'
+ORDER BY b.fecha_evento DESC
+LIMIT 1;
+
+-- Q-BIT-03: Sugerencias de música de un usuario (views/sounds_view.py)
+SELECT
+    b.descripcion,
+    b.fecha_evento,
+    especialista.nombre AS especialista_nombre
+FROM bitacora_cuenta b
+LEFT JOIN usuario especialista ON b.id_admin = especialista.id_usuario
+WHERE b.id_usuario = %s
+  AND b.accion = 'sugerir_musica'
+ORDER BY b.fecha_evento DESC;
+
+-- =====================================================
+-- D) CONSULTAS DE APOYO (schema.py, superuser_view.py, user_model.py)
+-- =====================================================
+
+-- Q-APO-01: Obtener id por nombre de catálogo (schema.py, obtener_id)
+SELECT id_rol FROM rol WHERE nombre = %s LIMIT 1;
+SELECT id_estado FROM estado_cuenta WHERE nombre = %s LIMIT 1;
+SELECT id_tema FROM tema WHERE nombre = %s LIMIT 1;
+
+-- Q-APO-02: Verificar si una columna existe (table_has_column)
+SELECT COUNT(*) AS total
+FROM information_schema.columns
+WHERE table_schema = DATABASE()
+  AND table_name = %s
+  AND column_name = %s;
+
+-- Q-APO-03: SuperuserView - buscar id_estado para cambiar estado
+SELECT id_estado
+FROM estado_cuenta
+WHERE nombre = %s
+LIMIT 1;
+
+-- Q-APO-04: SuperuserView - buscar id_preferencia antes de eliminar
+SELECT id_preferencia
+FROM usuario
+WHERE id_usuario = %s
+LIMIT 1;
+
+
+#################### 8. QUERY DML (MODIFICACIONES DE LA APP) ####################
+
+-- =====================================================
+-- A) REGISTRO DE USUARIO (create_user - models/user_model.py)
+-- =====================================================
+
+-- M-REG-01: Asegurar que exista el tema light
+INSERT INTO tema (nombre, descripcion)
+VALUES (%s, %s)
+ON DUPLICATE KEY UPDATE nombre = nombre;
+
+-- M-REG-02: Crear preferencia visual (con idioma)
+INSERT INTO preferencia_visual (id_tema, tamano_fuente, modo_visualizacion, idioma)
+VALUES (%s, %s, %s, %s);
+
+-- M-REG-03: Crear usuario (contrasena contiene el hash SHA-256)
+INSERT INTO usuario (
+    nombre, correo, contrasena, fecha_registro,
+    id_rol, id_estado, id_preferencia
+)
+VALUES (%s, %s, %s, %s, %s, %s, %s);
+
+-- =====================================================
+-- B) ACTUALIZACIÓN DE CUENTA (models/user_model.py)
+-- =====================================================
+
+-- M-ACT-01: Verificar correo duplicado (update_account_settings)
+SELECT id_usuario
+FROM usuario
+WHERE LOWER(correo) = %s
+  AND id_usuario <> %s
+LIMIT 1;
+
+-- M-ACT-01b: Verificar nombre de usuario duplicado (solo si existe la columna usuario)
+SELECT id_usuario
+FROM usuario
+WHERE LOWER(usuario) = %s
+  AND id_usuario <> %s
+LIMIT 1;
+
+-- M-ACT-02: Actualizar nombre, nombre de usuario y correo
+UPDATE usuario
+SET nombre = %s, usuario = %s, correo = %s
+WHERE id_usuario = %s;
+
+-- M-ACT-02b: Sin columna usuario (modelo actual)
+UPDATE usuario
+SET nombre = %s, correo = %s
+WHERE id_usuario = %s;
+
+-- M-ACT-03: Obtener hash actual para cambiar contraseña
+SELECT contrasena
+FROM usuario
+WHERE id_usuario = %s
+LIMIT 1;
+
+-- M-ACT-04: Actualizar contraseña (nuevo hash)
+UPDATE usuario
+SET contrasena = %s
+WHERE id_usuario = %s;
+
+-- M-ACT-05: Actualizar tema visual (SettingsView)
+SELECT id_tema
+FROM tema
+WHERE nombre = %s
+LIMIT 1;
+
+UPDATE preferencia_visual pv
+INNER JOIN usuario u ON pv.id_preferencia = u.id_preferencia
+SET pv.id_tema = %s
+WHERE u.id_usuario = %s;
+
+-- M-ACT-06: Actualizar idioma (SettingsView)
+UPDATE preferencia_visual pv
+INNER JOIN usuario u ON pv.id_preferencia = u.id_preferencia
+SET pv.idioma = %s
+WHERE u.id_usuario = %s;
+
+-- M-ACT-07: Cambiar estado de cuenta (update_status)
+UPDATE usuario
+SET id_estado = (
+    SELECT id_estado
+    FROM estado_cuenta
+    WHERE nombre = %s
+    LIMIT 1
+)
+WHERE id_usuario = %s;
+
+-- =====================================================
+-- C) BITÁCORA (superuser_view.py y specialist_view.py)
+-- =====================================================
+
+-- M-BIT-01: Registrar acción (id_admin = actor, id_usuario = afectado)
+INSERT INTO bitacora_cuenta (
+    id_admin, id_usuario, accion, descripcion, fecha_evento
+)
+VALUES (%s, %s, %s, %s, NOW());
+
+-- Acciones registradas: activa, restringida, eliminar (superuser),
+-- asignar_recomendacion, cargar_recurso, sugerir_musica (especialista).
+
+-- =====================================================
+-- D) ELIMINACIÓN (views/superuser_view.py)
+-- =====================================================
+
+-- M-ELI-01: Eliminar usuario
+DELETE FROM usuario
+WHERE id_usuario = %s;
+
+-- M-ELI-02: Eliminar su preferencia visual (después de borrar el usuario)
+DELETE FROM preferencia_visual
+WHERE id_preferencia = %s;
+
+-- =====================================================
+-- E) ELIMINACIÓN DESDE EL MODELO (models/user_model.py - delete_user)
+-- =====================================================
+-- Verifica la preferencia visual del usuario antes de borrar:
+
+SELECT id_preferencia
+FROM usuario
+WHERE id_usuario = %s
+LIMIT 1;
+
+DELETE FROM usuario
+WHERE id_usuario = %s;
+
+DELETE FROM preferencia_visual
+WHERE id_preferencia = %s;
+
+
+#################### 9. CORRESPONDENCIA CON REQUERIMIENTOS FUNCIONALES ####################
+
+RF-20 (asignar recomendacion): permiso asignar_recomendacion (especialista)
+    + bitacora_cuenta accion 'asignar_recomendacion'
+    + Q-BIT-02 (última recomendación en HomeView)
+RF-21 (marcar seguimiento): permiso marcar_seguimiento (especialista) [en catálogo y asignación]
+RF-22 (cargar recurso): permiso cargar_recurso (especialista)
+    + bitacora_cuenta accion 'cargar_recurso'
+Sugerir música: permiso sugerir_musica (especialista)
+    + Q-BIT-03 (recomendaciones musicales en SoundsView)
+Administración de cuentas: permisos gestionar_usuarios, moderar_usuarios (superuser)
+    + M-ACT-07 (activar/restringir), M-ELI-01/02 (eliminar)
+Idioma: preferencia_visual.idioma (es/en) + M-ACT-06
+Tema visual: preferencia_visual.id_tema + M-ACT-05

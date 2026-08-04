@@ -13,7 +13,7 @@ from components import (
 
 from utils.theme_manager import ThemeManager
 from utils.i18n import Lang
-from controllers.wellbeing_controller import WellbeingController
+from controllers.checkin_controller import CheckinController
 from utils.checkin_questions import get_today_checkin_template
 
 
@@ -568,7 +568,7 @@ class CheckinView(ctk.CTkFrame):
                     break
 
         payload = self.build_payload()
-        result = WellbeingController.save_checkin(self.user, payload)
+        result = CheckinController.save_checkin(self.user, payload)
 
         if result.get("success"):
             checkin = result.get("checkin", {})

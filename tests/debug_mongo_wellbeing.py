@@ -1,8 +1,9 @@
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database.mongo_connection import test_connection, get_wellbeing_collection
+from models.checkin_model import CheckinModel
 from models.wellbeing_model import WellbeingModel
 
 
@@ -23,13 +24,13 @@ def main():
 
     # 2. Asegurar documento para id_usuario=1
     print("\n[2] Asegurando documento para id_usuario=1...")
-    doc = WellbeingModel.ensure_user_document(1)
+    doc = CheckinModel.ensure_user_document(1)
     print(f"    Documento asegurado. ID: {doc.get('_id')}")
     print(f"    Check-ins actuales: {len(doc.get('checkins', []))}")
 
     # 3. Insertar check-in de prueba
     print("\n[3] Insertando check-in de prueba...")
-    result = WellbeingModel.save_checkin(
+    result = CheckinModel.save_checkin(
         id_usuario=1,
         tipo_checkin="estres_energia",
         titulo_checkin="Estado general",
@@ -57,7 +58,7 @@ def main():
 
     # 4. Leer últimos check-ins
     print("\n[4] Leyendo últimos check-ins (limit=5)...")
-    checkins = WellbeingModel.get_user_checkins(1, limit=5)
+    checkins = CheckinModel.get_user_checkins(1, limit=5)
     print(f"    Total obtenidos: {len(checkins)}")
     for ck in checkins:
         mood = ck.get("estado_animo_general") or ck.get("estado_animo", "-")
@@ -68,7 +69,7 @@ def main():
 
     # 5. Leer resumen
     print("\n[5] Leyendo resumen de bienestar...")
-    summary = WellbeingModel.get_user_wellbeing_summary(1)
+    summary = CheckinModel.get_user_wellbeing_summary(1)
     print(f"    Total check-ins: {summary['total_checkins']}")
     promedios = summary.get("promedios", {})
     for k, v in promedios.items():
@@ -79,7 +80,7 @@ def main():
 
     # 6. Último check-in
     print("\n[6] Último check-in...")
-    latest = WellbeingModel.get_latest_checkin(1)
+    latest = CheckinModel.get_latest_checkin(1)
     if latest:
         print(f"    Estado: {latest.get('estado_animo_general')}")
         print(f"    Tipo: {latest.get('tipo_checkin')}")
@@ -88,7 +89,7 @@ def main():
 
     # 7. Historial para especialista
     print("\n[7] Historial para especialista (id_usuario=1)...")
-    hist = WellbeingModel.get_specialist_user_history(1)
+    hist = CheckinModel.get_specialist_user_history(1)
     print(f"    Resumen: {hist['resumen']['total_checkins']} check-ins")
     print(f"    Check-ins en lista: {len(hist['checkins'])}")
 

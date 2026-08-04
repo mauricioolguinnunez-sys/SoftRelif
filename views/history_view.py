@@ -12,13 +12,13 @@ from components import (
 
 from utils.theme_manager import ThemeManager
 from utils.i18n import Lang
-from controllers.wellbeing_controller import WellbeingController
+from controllers.checkin_controller import CheckinController
 
 
 class HistoryView(ctk.CTkFrame):
     """
     Vista Historial.
-    Los datos de check-in se obtienen desde MongoDB vía WellbeingController.
+    Los datos de check-in se obtienen desde MongoDB vía CheckinController.
     """
 
     def __init__(self, master, app=None, user=None):
@@ -79,7 +79,7 @@ class HistoryView(ctk.CTkFrame):
         )
 
     def load_data(self):
-        result = WellbeingController.get_history(self.user)
+        result = CheckinController.get_history(self.user)
         if result.get("success"):
             self.checkins = result.get("checkins", [])
             self.summary = result.get("summary", {})

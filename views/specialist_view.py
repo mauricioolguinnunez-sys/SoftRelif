@@ -14,7 +14,7 @@ from database.connection import get_connection
 from utils.theme_manager import ThemeManager
 from utils.app_state import AppState
 from models.user_model import UserModel
-from controllers.wellbeing_controller import WellbeingController
+from controllers.checkin_controller import CheckinController
 from utils.i18n import Lang
 
 
@@ -884,7 +884,7 @@ class SpecialistView(ctk.CTkFrame):
             return
 
         fila = 0
-        wellbeing_data = WellbeingController.get_specialist_user_history(
+        wellbeing_data = CheckinController.get_specialist_user_history(
             self.usuario_actual, self.usuario_seleccionado.get("id_usuario")
         )
 
@@ -1243,7 +1243,7 @@ class SpecialistView(ctk.CTkFrame):
 
         try:
             for usuario in self.usuarios:
-                summary = WellbeingController.get_specialist_user_history(
+                summary = CheckinController.get_specialist_user_history(
                     self.usuario_actual,
                     usuario.get("id_usuario")
                 )

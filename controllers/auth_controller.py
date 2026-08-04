@@ -1,4 +1,11 @@
 from models.user_model import UserModel
+from utils.validation_utils import (
+    validar_confirmacion,
+    validar_correo,
+    validar_nombre,
+    validar_password,
+    validar_usuario,
+)
 
 
 class AuthController:
@@ -44,41 +51,17 @@ class AuthController:
         if confirm_password is not None:
             confirm_password = str(confirm_password).strip()
 
-        if not nombre or not usuario or not correo or not password:
-            return {
-                "success": False,
-                "message": "Completa todos los campos."
-            }
+        validaciones = [
+            validar_nombre(nombre),
+            validar_usuario(usuario),
+            validar_correo(correo),
+            validar_password(password),
+            validar_confirmacion(password, confirm_password),
+        ]
 
-        if len(nombre) < 3:
-            return {
-                "success": False,
-                "message": "El nombre debe tener al menos 3 caracteres."
-            }
-
-        if len(usuario) < 3:
-            return {
-                "success": False,
-                "message": "El usuario debe tener al menos 3 caracteres."
-            }
-
-        if "@" not in correo or "." not in correo:
-            return {
-                "success": False,
-                "message": "Ingresa un correo válido."
-            }
-
-        if len(password) < 4:
-            return {
-                "success": False,
-                "message": "La contraseña debe tener al menos 4 caracteres."
-            }
-
-        if confirm_password is not None and password != confirm_password:
-            return {
-                "success": False,
-                "message": "Las contraseñas no coinciden."
-            }
+        for validacion in validaciones:
+            if not validacion["success"]:
+                return validacion
 
         if rol not in ["usuario", "especialista", "superuser"]:
             rol = "usuario"

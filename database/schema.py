@@ -1,12 +1,13 @@
+from datetime import date
+
 from database.connection import get_connection
+from utils.constants import (
+    SPECIALIST_EMAIL,
+    SPECIALIST_PASSWORD,
+    SUPERUSER_EMAIL,
+    SUPERUSER_PASSWORD,
+)
 from utils.password_utils import hash_password
-
-
-SUPERUSER_EMAIL = "superuser@softrelief.local"
-SUPERUSER_PASSWORD = "admin123"
-
-SPECIALIST_EMAIL = "especialista@softrelief.local"
-SPECIALIST_PASSWORD = "especialista123"
 
 
 def create_tables():
@@ -140,6 +141,7 @@ def crear_tablas(cursor):
             id_tema INT NOT NULL,
             tamano_fuente VARCHAR(30) NOT NULL DEFAULT 'normal',
             modo_visualizacion VARCHAR(30) NOT NULL DEFAULT 'estandar',
+            idioma VARCHAR(10) NOT NULL DEFAULT 'es',
 
             CONSTRAINT fk_preferencia_tema
                 FOREIGN KEY (id_tema)
@@ -467,13 +469,15 @@ def crear_usuario_sistema(cursor, nombre, correo, password, rol):
         INSERT INTO preferencia_visual (
             id_tema,
             tamano_fuente,
-            modo_visualizacion
+            modo_visualizacion,
+            idioma
         )
-        VALUES (%s, %s, %s);
+        VALUES (%s, %s, %s, %s);
     """, (
         id_tema,
         "normal",
-        "estandar"
+        "estandar",
+        "es"
     ))
 
     id_preferencia = cursor.lastrowid
