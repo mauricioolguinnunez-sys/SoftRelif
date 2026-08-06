@@ -1115,7 +1115,7 @@ class SpecialistView(ctk.CTkFrame):
                 titulo = match.group(2).strip()
                 contenido = match.group(3).strip()
 
-                tipo_label = Lang.get(f"resource_type_{tipo}") or tipo
+                tipo_label = Lang.t(f"resource_type_{tipo}", tipo)
 
                 return (
                     f"{Lang.get('specialist_log_resource')} · {tipo_label}\n"

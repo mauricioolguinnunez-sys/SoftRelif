@@ -731,7 +731,7 @@ class HomeView(ctk.CTkFrame):
                 cuerpo,
                 Lang.get(
                     "home_resource_meta",
-                    tipo=Lang.get(f"resource_type_{datos['tipo']}") or datos["tipo"],
+                    tipo=Lang.t(f"resource_type_{datos['tipo']}", datos["tipo"]),
                     especialista=especialista,
                     fecha=fecha
                 ),
