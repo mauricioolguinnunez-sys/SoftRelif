@@ -24,6 +24,7 @@ build/
 dist/*
 !dist/SoftRelief.exe
 *.spec
+!SoftRelief.spec
 
 # Tests
 .pytest_cache/
