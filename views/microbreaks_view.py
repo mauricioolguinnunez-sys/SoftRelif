@@ -96,6 +96,7 @@ class MicrobreaksView(ctk.CTkFrame):
                 "description": "Una pausa corta para soltar la tensión acumulada, respirar y reconectar contigo.",
                 "benefits": ["Reduce el estrés", "Aclara tu mente", "Mejora tu enfoque"],
                 "benefit_keys": ["stress", "mind", "focus"],
+                "step_keys": ["pause_1", "pause_2", "pause_3", "pause_4"],
                 "steps": [
                     "Siéntate con la espalda cómoda.",
                     "Inhala lentamente durante 4 segundos.",
@@ -113,6 +114,7 @@ class MicrobreaksView(ctk.CTkFrame):
                 "description": "Riega el estanque y observa cómo florece el entorno mientras tu mente se sereniza.",
                 "benefits": ["Relaja la mente", "Fomenta calma", "Mejora la atención"],
                 "benefit_keys": ["relax", "calm", "attention"],
+                "step_keys": ["grow_1", "grow_2", "grow_3", "grow_4"],
                 "steps": [
                     "Abre el juego de observación y crecimiento.",
                     "Riega poco a poco para ver la escena cambiar.",
@@ -130,6 +132,7 @@ class MicrobreaksView(ctk.CTkFrame):
                 "description": "Observa, relaja tu mente y mejora tu enfoque con patrones calmantes.",
                 "benefits": ["Descansa la vista", "Mejora atención", "Baja saturación"],
                 "benefit_keys": ["rest_eyes", "attention", "lower_saturation"],
+                "step_keys": ["patterns_1", "patterns_2", "patterns_3", "patterns_4"],
                 "steps": [
                     "Mira un punto fijo.",
                     "Sigue un patrón visual simple.",
@@ -147,6 +150,7 @@ class MicrobreaksView(ctk.CTkFrame):
                 "description": "Pequeñas interacciones para anclar tu atención en el momento presente.",
                 "benefits": ["Vuelve al presente", "Reduce ansiedad", "Regula atención"],
                 "benefit_keys": ["present", "anxiety", "regulate"],
+                "step_keys": ["touch_1", "touch_2", "touch_3", "touch_4"],
                 "steps": [
                     "Toca suavemente la mesa.",
                     "Nota la textura.",
@@ -164,6 +168,7 @@ class MicrobreaksView(ctk.CTkFrame):
                 "description": "Ejercita tu memoria de forma amable con una actividad breve y sencilla.",
                 "benefits": ["Activa memoria", "Estimula creatividad", "Rompe rutina"],
                 "benefit_keys": ["memory", "creativity", "routine"],
+                "step_keys": ["memory_1", "memory_2", "memory_3", "memory_4"],
                 "steps": [
                     "Observa 4 elementos cercanos.",
                     "Cierra los ojos unos segundos.",
@@ -195,8 +200,8 @@ class MicrobreaksView(ctk.CTkFrame):
 
     def get_user_name(self):
         if self.user:
-            return self.user.get("nombre", "Usuario")
-        return "Usuario"
+            return self.user.get("nombre", Lang.get("username"))
+        return Lang.get("username")
 
     def normalize_microbreak(self, microbreak):
         return {
@@ -566,10 +571,11 @@ class MicrobreaksView(ctk.CTkFrame):
             )
             return
 
-        title = self.selected_break.get("title", "Microdescanso")
-        category = self.selected_break.get("category", "General")
+        title = Lang.t(f"micro_breaks_{self.selected_break.get('lang_key', '')}", self.selected_break.get("title", Lang.get("microbreak_default")))
+        category_key = self.selected_break.get("category_key", "")
+        category = Lang.t(f"micro_filter_{category_key}", self.selected_break.get("category", Lang.get("category_general")))
         duration = self.selected_break.get("duration", 5)
-        description = self.selected_break.get("description", "Actividad breve de bienestar.")
+        description = Lang.t(f"micro_breaks_{self.selected_break.get('lang_key', '')}_desc", self.selected_break.get("description", ""))
 
         payload = {
             "user_id": self.user.get("id_usuario") if self.user else None,
@@ -577,6 +583,8 @@ class MicrobreaksView(ctk.CTkFrame):
             "category": category,
             "duration": duration,
             "description": description,
+            "lang_key": self.selected_break.get("lang_key", ""),
+            "category_key": category_key,
             "started_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
             "completed": True,
         }
@@ -608,8 +616,11 @@ class MicrobreaksView(ctk.CTkFrame):
 
     def show_microbreak_steps(self, payload):
         steps_lines = []
+        step_keys = self.selected_break.get("step_keys", [])
         for index, step in enumerate(self.selected_break.get("steps", [])):
-            steps_lines.append(Lang.get("micro_steps_format", number=index + 1, step=step))
+            step_key = step_keys[index] if index < len(step_keys) else ""
+            step_text = Lang.t(f"micro_step_{step_key}", step)
+            steps_lines.append(Lang.get("micro_steps_format", number=index + 1, step=step_text))
         steps = "\n".join(steps_lines)
 
         parts = [

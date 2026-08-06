@@ -124,4 +124,10 @@ class UserController:
                 "message": "Idioma no válido."
             }
 
-        return PreferenceModel.update_language(current_user.get("id_usuario"), idioma)
+        current_user["idioma"] = idioma
+
+        return {
+            "success": True,
+            "message": "Idioma actualizado correctamente.",
+            "idioma": idioma
+        }

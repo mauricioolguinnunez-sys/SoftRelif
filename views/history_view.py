@@ -11,6 +11,7 @@ from components import (
 )
 
 from utils.theme_manager import ThemeManager
+from utils.app_state import AppState
 from utils.i18n import Lang
 from controllers.checkin_controller import CheckinController
 
@@ -27,6 +28,9 @@ class HistoryView(ctk.CTkFrame):
         self.user = user or self.current_user
         self.theme_name = self.get_theme_name()
         self.theme = ThemeManager.get_theme(self.theme_name)
+
+        user_lang = self.user.get("idioma") if self.user else None
+        Lang.set(user_lang or AppState.load_language())
 
         super().__init__(
             master,
@@ -61,8 +65,8 @@ class HistoryView(ctk.CTkFrame):
 
     def user_name(self):
         if self.user:
-            return self.user.get("nombre", "Usuario")
-        return "Usuario"
+            return self.user.get("nombre", Lang.get("username"))
+        return Lang.get("username")
 
     def user_role(self):
         if self.user:
@@ -449,7 +453,15 @@ class HistoryView(ctk.CTkFrame):
         chart = ctk.CTkFrame(parent, fg_color="transparent")
         chart.pack(fill="both", expand=True, padx=22, pady=(14, 22))
 
-        days = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+        days = [
+            Lang.get("day_mon"),
+            Lang.get("day_tue"),
+            Lang.get("day_wed"),
+            Lang.get("day_thu"),
+            Lang.get("day_fri"),
+            Lang.get("day_sat"),
+            Lang.get("day_sun"),
+        ]
         values = self.chart_values()
 
         for col in range(7):
@@ -579,9 +591,13 @@ class HistoryView(ctk.CTkFrame):
             })
 
         for item in self.microbreaks:
+            lang_key = item.get("lang_key")
+            micro_title = Lang.t(f"micro_breaks_{lang_key}", item.get("title", Lang.get("activity_default"))) if lang_key else item.get("title", Lang.get("activity_default"))
+            cat_key = item.get("category_key")
+            micro_cat = Lang.t(f"micro_filter_{cat_key}", item.get("category", Lang.get("category_general"))) if cat_key else item.get("category", Lang.get("category_general"))
             data.append({
-                "title": Lang.get("history_microbreak", title=item.get("title", "Actividad")),
-                "detail": f"{item.get('duration', '-')} min • {item.get('category', 'General')}",
+                "title": Lang.get("history_microbreak", title=micro_title),
+                "detail": f"{item.get('duration', '-')} min • {micro_cat}",
             })
 
         return data

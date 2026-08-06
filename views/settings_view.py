@@ -988,7 +988,7 @@ class SettingsView(ctk.CTkFrame):
 
         if not result.get("success"):
             self.show_message(
-                result.get("message", "No se pudo cambiar la contraseña."),
+                result.get("message", Lang.get("settings_password_error")),
                 error=True
             )
             return

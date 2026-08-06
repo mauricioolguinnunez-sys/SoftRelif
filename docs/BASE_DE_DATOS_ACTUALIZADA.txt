@@ -48,10 +48,15 @@ El presente documento cubre únicamente el componente MySQL.
    La implementación usa id_tema (FK hacia TEMA) + tamano_fuente +
    modo_visualizacion + idioma. No existe la columna tema_visual.
 
-4. PERMISOS: La documentación omitía marcar_seguimiento (RF-21) y documentaba
-   sugerir_musica como permiso del especialista (existe en el código actual).
-   El permiso consultar_historial_bienestar NO está asignado a superuser en la
-   implementación real (solo al especialista). Total real: 16 permisos.
+4. PERMISOS: La documentación omitía marcar_seguimiento (RF-21). El permiso
+   consultar_historial_bienestar está asignado a especialista y superuser.
+   Total real: 16 permisos. Permisos por rol:
+   - usuario: checkin, modo_calma, sonidos, microdescansos, historial, configuracion.
+   - especialista: panel_especialista, trayectoria_usuario, asignar_recomendacion,
+     marcar_seguimiento, cargar_recurso, sugerir_musica, consultar_historial_bienestar,
+     configuracion.
+   - superuser: gestionar_usuarios, moderar_usuarios, gestionar_roles, configuracion,
+     consultar_historial_bienestar.
 
 5. CONTRASEÑAS: La implementación inserta los usuarios base con hash SHA-256
    (utils/password_utils.py), NO en texto plano. Documentar que los valores
@@ -67,9 +72,10 @@ El presente documento cubre únicamente el componente MySQL.
    "DELETE FROM usuario" y ahora también elimina la preferencia_visual asociada
    para no dejar registros huérfanos (igual que views/superuser_view.py).
 
-8. TIPOS REALES: fecha_registro es DATE (no DATETIME). permiso.nombre es
-   VARCHAR(80) (no 100). tema.nombre es VARCHAR(30) (no 50). bitacora.accion
-   es VARCHAR(80) y bitacora.descripcion es VARCHAR(255) (no TEXT).
+8. TIPOS REALES: fecha_registro es DATETIME con DEFAULT CURRENT_TIMESTAMP
+   (schema.py inserta date.today() y las vistas NOW()). permiso.nombre es
+   VARCHAR(100). tema.nombre es VARCHAR(50). bitacora.accion es VARCHAR(100)
+   y bitacora.descripcion es TEXT. usuario.nombre es VARCHAR(100).
 
 9. ATRIBUTOS PARA EL MER (los que SÍ se pueden demostrar en el modelo real):
    - Simple: nombre, correo, contrasena, fecha_registro.
@@ -121,7 +127,7 @@ ROL(
 
 PERMISO(
   id_permiso   INT PK AUTO_INCREMENT,
-  nombre       VARCHAR(80)  NOT NULL UNIQUE,
+  nombre       VARCHAR(100) NOT NULL UNIQUE,
   descripcion  VARCHAR(255) NOT NULL
 )
 
@@ -132,7 +138,7 @@ ROL_PERMISO(
 
 TEMA(
   id_tema      INT PK AUTO_INCREMENT,
-  nombre       VARCHAR(30)  NOT NULL UNIQUE,
+  nombre       VARCHAR(50)  NOT NULL UNIQUE,
   descripcion  VARCHAR(255) NOT NULL
 )
 
@@ -140,16 +146,17 @@ PREFERENCIA_VISUAL(
   id_preferencia     INT PK AUTO_INCREMENT,
   id_tema            INT NOT NULL FK -> TEMA(id_tema) ON DELETE RESTRICT ON UPDATE CASCADE,
   tamano_fuente      VARCHAR(30) NOT NULL DEFAULT 'normal',
-  modo_visualizacion VARCHAR(30) NOT NULL DEFAULT 'estandar',
+  modo_visualizacion VARCHAR(50) NOT NULL DEFAULT 'estandar',
   idioma             VARCHAR(10) NOT NULL DEFAULT 'es'
 )
 
 USUARIO(
   id_usuario     INT PK AUTO_INCREMENT,
-  nombre         VARCHAR(120) NOT NULL,
+  nombre         VARCHAR(100) NOT NULL,
   correo         VARCHAR(150) NOT NULL UNIQUE,
   contrasena     VARCHAR(255) NOT NULL,   -- almacena hash SHA-256
-  fecha_registro DATE         NOT NULL,
+                                          -- CHECK: CHAR_LENGTH(contrasena) >= 4
+  fecha_registro DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   id_rol         INT NOT NULL FK -> ROL(id_rol)             ON DELETE RESTRICT ON UPDATE CASCADE,
   id_estado      INT NOT NULL FK -> ESTADO_CUENTA(id_estado) ON DELETE RESTRICT ON UPDATE CASCADE,
   id_preferencia INT NOT NULL UNIQUE FK -> PREFERENCIA_VISUAL(id_preferencia)
@@ -160,9 +167,10 @@ BITACORA_CUENTA(
   id_bitacora  INT PK AUTO_INCREMENT,
   id_admin     INT NULL FK -> USUARIO(id_usuario) ON DELETE SET NULL ON UPDATE CASCADE,
   id_usuario   INT NULL FK -> USUARIO(id_usuario) ON DELETE SET NULL ON UPDATE CASCADE,
-  accion       VARCHAR(80)  NOT NULL,
-  descripcion  VARCHAR(255) NOT NULL,
-  fecha_evento DATETIME     NOT NULL
+  accion       ENUM('asignar_recomendacion','cargar_recurso','sugerir_musica',
+                    'activa','restringida','eliminar') NOT NULL,
+  descripcion  TEXT         NOT NULL,
+  fecha_evento DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
 )
 
 
@@ -179,32 +187,32 @@ ROL
   descripcion  | VARCHAR(255)| -        | Descripción del rol y sus funciones.
 
 PERMISO
-  id_permiso   | INT         | PK       | Identificador del permiso.
-  nombre       | VARCHAR(80) | UNIQUE   | Nombre del permiso.
-  descripcion  | VARCHAR(255)| -        | Descripción del permiso.
+  id_permiso   | INT          | PK       | Identificador del permiso.
+  nombre       | VARCHAR(100) | UNIQUE   | Nombre del permiso.
+  descripcion  | VARCHAR(255) | -        | Descripción del permiso.
 
 ROL_PERMISO
   id_rol       | INT         | PK, FK   | Rol al que se asigna el permiso.
   id_permiso   | INT         | PK, FK   | Permiso asignado al rol.
 
 TEMA
-  id_tema      | INT         | PK       | Identificador del tema.
-  nombre       | VARCHAR(30) | UNIQUE   | Nombre del tema (light, dark).
-  descripcion  | VARCHAR(255)| -        | Descripción del tema visual.
+  id_tema      | INT          | PK       | Identificador del tema.
+  nombre       | VARCHAR(50)  | UNIQUE   | Nombre del tema (light, dark).
+  descripcion  | VARCHAR(255) | -        | Descripción del tema visual.
 
 PREFERENCIA_VISUAL
   id_preferencia     | INT          | PK       | Identificador de la preferencia visual.
   id_tema            | INT          | FK       | Tema visual seleccionado (light/dark).
   tamano_fuente      | VARCHAR(30)  | -        | Tamaño de fuente (normal).
-  modo_visualizacion | VARCHAR(30)  | -        | Modo de visualización (estandar).
+  modo_visualizacion | VARCHAR(50)  | -        | Modo de visualización (estandar).
   idioma             | VARCHAR(10)  | -        | Idioma de la interfaz (es, en).
 
 USUARIO
   id_usuario     | INT          | PK       | Identificador del usuario.
-  nombre         | VARCHAR(120) | -        | Nombre completo del usuario.
+  nombre         | VARCHAR(100) | -        | Nombre completo del usuario.
   correo         | VARCHAR(150) | UNIQUE   | Correo electrónico del usuario.
-  contrasena     | VARCHAR(255) | -        | Contraseña cifrada (hash SHA-256).
-  fecha_registro | DATE         | -        | Fecha en que se registró el usuario.
+  contrasena     | VARCHAR(255) | CHECK    | Contraseña cifrada (hash SHA-256). CHECK: mínimo 4 caracteres.
+  fecha_registro | DATETIME     | -        | Fecha en que se registró el usuario.
   id_rol         | INT          | FK       | Rol asignado al usuario.
   id_estado      | INT          | FK       | Estado actual de la cuenta.
   id_preferencia | INT          | FK,UNIQUE| Preferencia visual del usuario.
@@ -213,8 +221,8 @@ BITACORA_CUENTA
   id_bitacora  | INT          | PK       | Identificador del registro de bitácora.
   id_admin     | INT          | FK, NULL | Actor (superuser o especialista) que ejecutó la acción.
   id_usuario   | INT          | FK, NULL | Usuario afectado por la acción.
-  accion       | VARCHAR(80)  | -        | Acción realizada (asignar_recomendacion, cargar_recurso, sugerir_musica, marcar_seguimiento, eliminar, activa, restringida).
-  descripcion  | VARCHAR(255) | -        | Descripción detallada de la acción.
+  accion       | ENUM         | -        | Acción realizada: asignar_recomendacion, cargar_recurso, sugerir_musica, activa, restringida, eliminar.
+  descripcion  | TEXT         | -        | Descripción detallada de la acción.
   fecha_evento | DATETIME     | -        | Fecha y hora del evento.
 
 CATÁLOGOS INSERTADOS (schema.py -> insertar_catalogos_base):
@@ -232,11 +240,12 @@ ASIGNACIÓN DE PERMISOS POR ROL (schema.py -> asignar_permisos_base):
   especialista : panel_especialista, trayectoria_usuario, asignar_recomendacion,
                  marcar_seguimiento, cargar_recurso, sugerir_musica,
                  consultar_historial_bienestar, configuracion.
-  superuser    : gestionar_usuarios, moderar_usuarios, gestionar_roles, configuracion.
+  superuser    : gestionar_usuarios, moderar_usuarios, gestionar_roles, configuracion,
+                 consultar_historial_bienestar.
 
 USUARIOS BASE (schema.py -> crear_usuario_sistema):
-  superuser@softrelief.local   rol superuser    contraseña temporal: admin123 (cifrada en BD)
-  especialista@softrelief.local rol especialista contraseña temporal: especialista123 (cifrada en BD)
+  Superuser / superuser@softrelief.local   rol superuser    tema dark    contraseña temporal: admin123 (cifrada en BD)
+  Especialista / especialista@softrelief.local rol especialista tema light contraseña temporal: especialista123 (cifrada en BD)
 
 
 #################### 6. QUERY DDL (SCRIPT COMPLETO SINCRONIZADO) ####################
@@ -275,7 +284,7 @@ CREATE TABLE IF NOT EXISTS rol (
 -- =====================================================
 CREATE TABLE IF NOT EXISTS permiso (
    id_permiso INT AUTO_INCREMENT PRIMARY KEY,
-   nombre VARCHAR(80) NOT NULL UNIQUE,
+   nombre VARCHAR(100) NOT NULL UNIQUE,
    descripcion VARCHAR(255) NOT NULL
 ) ENGINE=InnoDB
   DEFAULT CHARSET=utf8mb4
@@ -310,7 +319,7 @@ CREATE TABLE IF NOT EXISTS rol_permiso (
 -- =====================================================
 CREATE TABLE IF NOT EXISTS tema (
    id_tema INT AUTO_INCREMENT PRIMARY KEY,
-   nombre VARCHAR(30) NOT NULL UNIQUE,
+   nombre VARCHAR(50) NOT NULL UNIQUE,
    descripcion VARCHAR(255) NOT NULL
 ) ENGINE=InnoDB
   DEFAULT CHARSET=utf8mb4
@@ -323,7 +332,7 @@ CREATE TABLE IF NOT EXISTS preferencia_visual (
   id_preferencia INT AUTO_INCREMENT PRIMARY KEY,
   id_tema INT NOT NULL,
   tamano_fuente VARCHAR(30) NOT NULL DEFAULT 'normal',
-  modo_visualizacion VARCHAR(30) NOT NULL DEFAULT 'estandar',
+  modo_visualizacion VARCHAR(50) NOT NULL DEFAULT 'estandar',
   idioma VARCHAR(10) NOT NULL DEFAULT 'es',
 
   CONSTRAINT fk_preferencia_tema
@@ -340,13 +349,16 @@ CREATE TABLE IF NOT EXISTS preferencia_visual (
 -- =====================================================
 CREATE TABLE IF NOT EXISTS usuario (
   id_usuario INT AUTO_INCREMENT PRIMARY KEY,
-  nombre VARCHAR(120) NOT NULL,
+  nombre VARCHAR(100) NOT NULL,
   correo VARCHAR(150) NOT NULL UNIQUE,
   contrasena VARCHAR(255) NOT NULL,
-  fecha_registro DATE NOT NULL,
+  fecha_registro DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   id_rol INT NOT NULL,
   id_estado INT NOT NULL,
   id_preferencia INT NOT NULL UNIQUE,
+
+  CONSTRAINT chk_usuario_contrasena
+    CHECK (CHAR_LENGTH(contrasena) >= 4),
 
   CONSTRAINT fk_usuario_rol
     FOREIGN KEY (id_rol)
@@ -376,9 +388,16 @@ CREATE TABLE IF NOT EXISTS bitacora_cuenta (
   id_bitacora INT AUTO_INCREMENT PRIMARY KEY,
   id_admin INT NULL,
   id_usuario INT NULL,
-  accion VARCHAR(80) NOT NULL,
-  descripcion VARCHAR(255) NOT NULL,
-  fecha_evento DATETIME NOT NULL,
+  accion ENUM(
+    'asignar_recomendacion',
+    'cargar_recurso',
+    'sugerir_musica',
+    'activa',
+    'restringida',
+    'eliminar'
+  ) NOT NULL,
+  descripcion TEXT NOT NULL,
+  fecha_evento DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
   CONSTRAINT fk_bitacora_admin
     FOREIGN KEY (id_admin)
@@ -473,7 +492,8 @@ FROM rol r
 INNER JOIN permiso p
 WHERE r.nombre = 'superuser'
 AND p.nombre IN (
-   'gestionar_usuarios', 'moderar_usuarios', 'gestionar_roles', 'configuracion'
+   'gestionar_usuarios', 'moderar_usuarios', 'gestionar_roles', 'configuracion',
+   'consultar_historial_bienestar'
 );
 
 -- =====================================================
@@ -491,7 +511,7 @@ AND NOT EXISTS (
 );
 
 INSERT INTO usuario (nombre, correo, contrasena, fecha_registro, id_rol, id_estado, id_preferencia)
-SELECT 'Superuser SoftRelief', 'superuser@softrelief.local', SHA2('admin123', 256),
+SELECT 'Superuser', 'superuser@softrelief.local', SHA2('admin123', 256),
        CURDATE(), r.id_rol, e.id_estado, pv.id_preferencia
 FROM rol r
 INNER JOIN estado_cuenta e
@@ -513,7 +533,7 @@ AND NOT EXISTS (
 );
 
 INSERT INTO usuario (nombre, correo, contrasena, fecha_registro, id_rol, id_estado, id_preferencia)
-SELECT 'Especialista SoftRelief', 'especialista@softrelief.local', SHA2('especialista123', 256),
+SELECT 'Especialista', 'especialista@softrelief.local', SHA2('especialista123', 256),
        CURDATE(), r.id_rol, e.id_estado, pv.id_preferencia
 FROM rol r
 INNER JOIN estado_cuenta e
@@ -924,3 +944,53 @@ Administración de cuentas: permisos gestionar_usuarios, moderar_usuarios (super
     + M-ACT-07 (activar/restringir), M-ELI-01/02 (eliminar)
 Idioma: preferencia_visual.idioma (es/en) + M-ACT-06
 Tema visual: preferencia_visual.id_tema + M-ACT-05
+
+
+#################### 10. RESTRICCIONES AVANZADAS (ENUM Y CHECK) ####################
+
+10.1 bitacora_cuenta.accion  ->  ENUM
+
+    accion ENUM(
+        'asignar_recomendacion',
+        'cargar_recurso',
+        'sugerir_musica',
+        'activa',
+        'restringida',
+        'eliminar'
+    ) NOT NULL
+
+    DÓNDE ESTÁ IMPLEMENTADO:
+    - database/schema.py  -> crear_tablas() (CREATE TABLE bitacora_cuenta)
+    - database/schema.py  -> sincronizar_estructura_documentada() (ALTER para BD existentes)
+    - views/specialist_view.py -> INSERT con accion = asignar_recomendacion / cargar_recurso / sugerir_musica
+    - views/superuser_view.py  -> INSERT con accion = estado (activa/restringida) o eliminar
+
+    JUSTIFICACIÓN:
+    - La aplicación solo registra 6 acciones administrativas fijas (3 del panel del
+      especialista y 3 del panel del superuser). El ENUM garantiza en la base de datos
+      que no se escriba una acción inventada, reforzando la integridad del historial.
+    - Se eligió bitacora_cuenta.accion y no otro campo porque es un dominio cerrado y
+      pequeño, documentado en las vistas; el resto de los campos candidatos
+      (estado, rol, tema) ya están normalizados en tablas catálogo (estado_cuenta,
+      rol, tema) y convertirlos a ENUM duplicaría la lógica del catálogo.
+    - Límite funcional: si en el futuro la app registra una acción nueva, debe
+      agregarse al ENUM (ALTER TABLE ... MODIFY COLUMN accion ENUM(...,'nueva')).
+
+10.2 usuario.contrasena  ->  CHECK
+
+    CONSTRAINT chk_usuario_contrasena
+        CHECK (CHAR_LENGTH(contrasena) >= 4)
+
+    DÓNDE ESTÁ IMPLEMENTADO:
+    - database/schema.py  -> crear_tablas() (CREATE TABLE usuario)
+    - database/schema.py  -> sincronizar_check_contrasena() (ALTER para BD existentes)
+
+    JUSTIFICACIÓN:
+    - La capa de aplicación ya valida contraseñas con un mínimo de 4 caracteres
+      (utils/validation_utils.py -> validar_password). El CHECK replica esa misma
+      regla en la base de datos para que ningún INSERT/UPDATE externo o futuro
+      pueda guardar una contraseña más corta.
+    - Se aplica sobre el campo contrasena (hash SHA-256 de 64 caracteres en los
+      registros reales, siempre >= 4), por lo que no afecta ningún dato existente.
+    - Es una restricción de integridad de dominio típica del nivel CHECK de MySQL 8.
+

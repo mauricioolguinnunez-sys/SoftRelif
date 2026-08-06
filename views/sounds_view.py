@@ -13,6 +13,7 @@ from components import (
 
 from database.connection import get_connection
 from utils.theme_manager import ThemeManager
+from utils.app_state import AppState
 from utils.music_catalog import get_all_music, get_music_by_id
 from utils.music_state import (
     get_user_music_settings,
@@ -57,6 +58,9 @@ class SoundsView(ctk.CTkFrame):
             self.theme_name = self.current_user.get("tema_visual", "light")
 
         self.theme = ThemeManager.get_theme(self.theme_name)
+
+        user_lang = self.current_user.get("idioma") if self.current_user else None
+        Lang.set(user_lang or AppState.load_language())
 
         super().__init__(
             master,
@@ -113,9 +117,9 @@ class SoundsView(ctk.CTkFrame):
 
     def user_name(self):
         if not self.current_user:
-            return "Usuario"
+            return Lang.get("username")
 
-        return self.current_user.get("nombre", "Usuario")
+        return self.current_user.get("nombre", Lang.get("username"))
 
     def clear_container(self, container):
         for widget in container.winfo_children():
@@ -955,7 +959,7 @@ class SoundsView(ctk.CTkFrame):
             self.player_icon.configure(text=track.get("icon", "♪"))
 
         if self.player_title:
-            self.player_title.configure(text=track.get("title", "Sin título"))
+            self.player_title.configure(text=track.get("title", Lang.get("no_title")))
 
         if self.player_subtitle:
             self.player_subtitle.configure(text=status)

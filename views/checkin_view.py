@@ -12,6 +12,7 @@ from components import (
 )
 
 from utils.theme_manager import ThemeManager
+from utils.app_state import AppState
 from utils.i18n import Lang
 from controllers.checkin_controller import CheckinController
 from utils.checkin_questions import get_today_checkin_template
@@ -23,6 +24,9 @@ class CheckinView(ctk.CTkFrame):
         self.user = user
         self.theme_name = self.get_theme_name()
         self.theme = ThemeManager.get_theme(self.theme_name)
+
+        user_lang = self.user.get("idioma") if self.user else None
+        Lang.set(user_lang or AppState.load_language())
 
         super().__init__(
             master,
@@ -62,8 +66,8 @@ class CheckinView(ctk.CTkFrame):
 
     def user_name(self):
         if self.user:
-            return self.user.get("nombre", "Usuario")
-        return "Usuario"
+            return self.user.get("nombre", Lang.get("username"))
+        return Lang.get("username")
 
     def make_card(self, parent, radius=22):
         return SoftCard(
@@ -542,7 +546,7 @@ class CheckinView(ctk.CTkFrame):
         return {
             "tipo_checkin": self.template["tipo_checkin"],
             "titulo_checkin": self.template["titulo"],
-            "estado_animo_general": self.selected_mood or "Sin estado",
+            "estado_animo_general": self.selected_mood or Lang.get("history_no_state"),
             "respuestas": respuestas,
             "recomendacion_automatica": {
                 "titulo": title,

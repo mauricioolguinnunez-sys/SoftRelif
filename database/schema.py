@@ -38,28 +38,31 @@ def create_tables():
         insertar_catalogos_base(cursor)
         conexion.commit()
 
-        migrar_idioma_preferencia_visual(cursor)
-        conexion.commit()
-
         asignar_permisos_base(cursor)
         conexion.commit()
 
         crear_usuario_sistema(
             cursor,
-            nombre="Superuser SoftRelief",
+            nombre="Superuser",
             correo=SUPERUSER_EMAIL,
             password=SUPERUSER_PASSWORD,
-            rol="superuser"
+            rol="superuser",
+            tema="dark"
         )
 
         crear_usuario_sistema(
             cursor,
-            nombre="Especialista SoftRelief",
+            nombre="Especialista",
             correo=SPECIALIST_EMAIL,
             password=SPECIALIST_PASSWORD,
-            rol="especialista"
+            rol="especialista",
+            tema="light"
         )
 
+        sincronizar_estructura_documentada(cursor)
+        conexion.commit()
+
+        sincronizar_cuentas_iniciales(cursor)
         conexion.commit()
 
     finally:
@@ -95,7 +98,7 @@ def crear_tablas(cursor):
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS permiso (
             id_permiso INT AUTO_INCREMENT PRIMARY KEY,
-            nombre VARCHAR(80) NOT NULL UNIQUE,
+            nombre VARCHAR(100) NOT NULL UNIQUE,
             descripcion VARCHAR(255) NOT NULL
         ) ENGINE=InnoDB
           DEFAULT CHARSET=utf8mb4
@@ -128,7 +131,7 @@ def crear_tablas(cursor):
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS tema (
             id_tema INT AUTO_INCREMENT PRIMARY KEY,
-            nombre VARCHAR(30) NOT NULL UNIQUE,
+            nombre VARCHAR(50) NOT NULL UNIQUE,
             descripcion VARCHAR(255) NOT NULL
         ) ENGINE=InnoDB
           DEFAULT CHARSET=utf8mb4
@@ -140,8 +143,7 @@ def crear_tablas(cursor):
             id_preferencia INT AUTO_INCREMENT PRIMARY KEY,
             id_tema INT NOT NULL,
             tamano_fuente VARCHAR(30) NOT NULL DEFAULT 'normal',
-            modo_visualizacion VARCHAR(30) NOT NULL DEFAULT 'estandar',
-            idioma VARCHAR(10) NOT NULL DEFAULT 'es',
+            modo_visualizacion VARCHAR(50) NOT NULL DEFAULT 'estandar',
 
             CONSTRAINT fk_preferencia_tema
                 FOREIGN KEY (id_tema)
@@ -156,13 +158,16 @@ def crear_tablas(cursor):
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS usuario (
             id_usuario INT AUTO_INCREMENT PRIMARY KEY,
-            nombre VARCHAR(120) NOT NULL,
+            nombre VARCHAR(100) NOT NULL,
             correo VARCHAR(150) NOT NULL UNIQUE,
             contrasena VARCHAR(255) NOT NULL,
-            fecha_registro DATE NOT NULL,
+            fecha_registro DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             id_rol INT NOT NULL,
             id_estado INT NOT NULL,
             id_preferencia INT NOT NULL UNIQUE,
+
+            CONSTRAINT chk_usuario_contrasena
+                CHECK (CHAR_LENGTH(contrasena) >= 4),
 
             CONSTRAINT fk_usuario_rol
                 FOREIGN KEY (id_rol)
@@ -191,9 +196,16 @@ def crear_tablas(cursor):
             id_bitacora INT AUTO_INCREMENT PRIMARY KEY,
             id_admin INT NULL,
             id_usuario INT NULL,
-            accion VARCHAR(80) NOT NULL,
-            descripcion VARCHAR(255) NOT NULL,
-            fecha_evento DATETIME NOT NULL,
+            accion ENUM(
+                'asignar_recomendacion',
+                'cargar_recurso',
+                'sugerir_musica',
+                'activa',
+                'restringida',
+                'eliminar'
+            ) NOT NULL,
+            descripcion TEXT NOT NULL,
+            fecha_evento DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
             CONSTRAINT fk_bitacora_admin
                 FOREIGN KEY (id_admin)
@@ -388,6 +400,7 @@ def asignar_permisos_base(cursor):
         "moderar_usuarios",
         "gestionar_roles",
         "configuracion",
+        "consultar_historial_bienestar",
     ]
 
     for permiso in permisos_usuario:
@@ -430,7 +443,7 @@ def asignar_permiso(cursor, nombre_rol, nombre_permiso):
 # USUARIOS BASE
 # =====================================================
 
-def crear_usuario_sistema(cursor, nombre, correo, password, rol):
+def crear_usuario_sistema(cursor, nombre, correo, password, rol, tema="light"):
     cursor.execute("""
         SELECT id_usuario
         FROM usuario
@@ -461,7 +474,7 @@ def crear_usuario_sistema(cursor, nombre, correo, password, rol):
         cursor,
         tabla="tema",
         campo="nombre",
-        valor="light",
+        valor=tema,
         campo_id="id_tema"
     )
 
@@ -469,15 +482,13 @@ def crear_usuario_sistema(cursor, nombre, correo, password, rol):
         INSERT INTO preferencia_visual (
             id_tema,
             tamano_fuente,
-            modo_visualizacion,
-            idioma
+            modo_visualizacion
         )
-        VALUES (%s, %s, %s, %s);
+        VALUES (%s, %s, %s);
     """, (
         id_tema,
         "normal",
-        "estandar",
-        "es"
+        "estandar"
     ))
 
     id_preferencia = cursor.lastrowid
@@ -530,33 +541,152 @@ def obtener_id(cursor, tabla, campo, valor, campo_id):
 
 
 # =====================================================
-# MIGRACIÓN SEGURA: idioma en preferencia_visual
+# SINCRONIZACIÓN CON LA DOCUMENTACIÓN DECLARADA
 # =====================================================
 
-def migrar_idioma_preferencia_visual(cursor):
+def obtener_tipo_columna(cursor, tabla, columna):
+    cursor.execute("""
+        SELECT COLUMN_TYPE, COLUMN_DEFAULT
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = %s
+          AND column_name = %s;
+    """, (tabla, columna))
+
+    return cursor.fetchone()
+
+
+def sincronizar_estructura_documentada(cursor):
     """
-    Agrega la columna 'idioma' a preferencia_visual si no existe.
-    No hace DROP ni borra datos.
+    Ajusta los tipos de columna a los declarados en la documentación
+    (permiso.nombre VARCHAR(100), tema.nombre VARCHAR(50),
+    preferencia_visual.modo_visualizacion VARCHAR(50),
+    usuario.nombre VARCHAR(100), usuario.fecha_registro DATETIME,
+    bitacora_cuenta.accion ENUM, descripcion TEXT,
+    fecha_evento DATETIME DEFAULT CURRENT_TIMESTAMP).
+
+    Solo altera cuando el tipo actual difiere; no borra datos.
+    """
+
+    accion_enum = (
+        "enum('asignar_recomendacion','cargar_recurso','sugerir_musica',"
+        "'activa','restringida','eliminar')"
+    )
+
+    cambios = [
+        ("permiso", "nombre", "VARCHAR(100) NOT NULL", "varchar(100)"),
+        ("tema", "nombre", "VARCHAR(50) NOT NULL", "varchar(50)"),
+        (
+            "preferencia_visual",
+            "modo_visualizacion",
+            "VARCHAR(50) NOT NULL DEFAULT 'estandar'",
+            "varchar(50)",
+        ),
+        ("usuario", "nombre", "VARCHAR(100) NOT NULL", "varchar(100)"),
+        (
+            "usuario",
+            "fecha_registro",
+            "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "datetime",
+        ),
+        (
+            "bitacora_cuenta",
+            "accion",
+            f"{accion_enum} NOT NULL",
+            accion_enum,
+        ),
+        ("bitacora_cuenta", "descripcion", "TEXT NOT NULL", "text"),
+        (
+            "bitacora_cuenta",
+            "fecha_evento",
+            "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP",
+            "datetime",
+        ),
+    ]
+
+    for tabla, columna, definicion, tipo_esperado in cambios:
+        fila = obtener_tipo_columna(cursor, tabla, columna)
+
+        if not fila:
+            continue
+
+        tipo_actual = fila["COLUMN_TYPE"].lower()
+        default_actual = fila["COLUMN_DEFAULT"]
+
+        necesita_cambio = tipo_actual != tipo_esperado
+
+        if "DEFAULT" in definicion and default_actual is None:
+            necesita_cambio = True
+
+        if necesita_cambio:
+            cursor.execute(
+                f"ALTER TABLE {tabla} MODIFY COLUMN {columna} {definicion};"
+            )
+            print(f"Columna '{tabla}.{columna}' ajustada.")
+
+    sincronizar_check_contrasena(cursor)
+
+
+def sincronizar_check_contrasena(cursor):
+    """
+    Garantiza la restricción CHECK de usuario.contrasena (mínimo 4 caracteres),
+    equivalente a la validación de utils/validation_utils.validar_password.
     """
 
     cursor.execute("""
         SELECT COUNT(*) AS total
-        FROM information_schema.columns
+        FROM information_schema.table_constraints
         WHERE table_schema = DATABASE()
-          AND table_name = 'preferencia_visual'
-          AND column_name = 'idioma';
+          AND table_name = 'usuario'
+          AND constraint_name = 'chk_usuario_contrasena';
     """)
 
-    row = cursor.fetchone()
-    existe = row["total"] > 0
+    fila = cursor.fetchone()
+    existe = fila["total"] > 0
 
     if not existe:
         cursor.execute("""
-            ALTER TABLE preferencia_visual
-            ADD COLUMN idioma VARCHAR(10) NOT NULL DEFAULT 'es';
+            ALTER TABLE usuario
+            ADD CONSTRAINT chk_usuario_contrasena
+            CHECK (CHAR_LENGTH(contrasena) >= 4);
         """)
+        print("Restricción CHECK chk_usuario_contrasena agregada a usuario.")
 
-        print("Columna 'idioma' agregada a preferencia_visual.")
+
+def sincronizar_cuentas_iniciales(cursor):
+    """
+    Alinea las cuentas del sistema con la documentación:
+    - Superuser con tema dark.
+    - Nombres exactos 'Superuser' y 'Especialista'.
+
+    Solo se aplica si el nombre sigue siendo el valor legacy,
+    por lo que no pisa cambios posteriores hechos desde la app.
+    """
+
+    id_tema_dark = obtener_id(
+        cursor,
+        tabla="tema",
+        campo="nombre",
+        valor="dark",
+        campo_id="id_tema"
+    )
+
+    cursor.execute("""
+        UPDATE usuario u
+        JOIN preferencia_visual pv
+            ON u.id_preferencia = pv.id_preferencia
+        SET u.nombre = %s,
+            pv.id_tema = %s
+        WHERE u.correo = %s
+          AND u.nombre = %s;
+    """, ("Superuser", id_tema_dark, SUPERUSER_EMAIL, "Superuser SoftRelief"))
+
+    cursor.execute("""
+        UPDATE usuario u
+        SET u.nombre = %s
+        WHERE u.correo = %s
+          AND u.nombre = %s;
+    """, ("Especialista", SPECIALIST_EMAIL, "Especialista SoftRelief"))
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@ import customtkinter as ctk
 from utils.music_catalog import get_all_music, get_music_by_id
 from utils.music_state import get_user_music_settings
 from utils.sound_player import SoundPlayer
+from utils.app_state import AppState
 from utils.i18n import Lang
 from views.breathing_view import BreathingCanvas
 
@@ -25,6 +26,9 @@ class CalmModeView(ctk.CTkFrame):
 
         self.app = app
         self.user = user or getattr(app, "current_user", None)
+
+        user_lang = self.user.get("idioma") if self.user else None
+        Lang.set(user_lang or AppState.load_language())
 
         self.modes = [
             {

@@ -96,8 +96,8 @@ class HomeView(ctk.CTkFrame):
 
     def user_name(self):
         if self.current_user:
-            return self.current_user.get("nombre", "Usuario")
-        return "Usuario"
+            return self.current_user.get("nombre", Lang.get("username"))
+        return Lang.get("username")
 
     def user_role(self):
         if self.current_user:
@@ -604,7 +604,7 @@ class HomeView(ctk.CTkFrame):
             ).pack(anchor="w", padx=24, pady=(0, 22))
             return
 
-        especialista = recomendacion.get("especialista_nombre") or "Especialista"
+        especialista = recomendacion.get("especialista_nombre") or Lang.get("super_role_specialist")
         fecha = recomendacion.get("fecha_evento", "-")
         detalle = self.limpiar_texto_recomendacion(recomendacion.get("descripcion", ""))
 

@@ -413,6 +413,66 @@ TRANSLATIONS = {
         "super_role_specialist": "Especialista",
         "super_role_user": "Usuario",
         "super_role_none": "Sin rol",
+        "super_state_update_error": "No se pudo actualizar el estado: {error}",
+        "super_audit_state_changed": "El superuser cambió el estado de la cuenta a {estado}.",
+        "super_audit_deleted": "El superuser eliminó una cuenta desde el panel administrativo.",
+
+        # Comunes / fallbacks
+        "day_mon": "Lun",
+        "day_tue": "Mar",
+        "day_wed": "Mié",
+        "day_thu": "Jue",
+        "day_fri": "Vie",
+        "day_sat": "Sáb",
+        "day_sun": "Dom",
+        "activity_default": "Actividad",
+        "no_title": "Sin título",
+        "microbreak_default": "Microdescanso",
+        "history_no_state": "Sin estado",
+        "category_general": "General",
+        "title_label": "Título:",
+        "category_label": "Categoría:",
+        "description_label": "Descripción:",
+        "detail_label": "Detalle:",
+        "type_label": "Tipo:",
+        "content_label": "Contenido:",
+        "metric_avg_suffix": "prom",
+        "settings_password_error": "No se pudo cambiar la contraseña.",
+
+        # Specialist
+        "specialist_last_state": "Último: {estado}",
+        "specialist_need_common_user": "Selecciona primero un usuario común.",
+        "specialist_restricted_action": "No puedes registrar acciones para una cuenta restringida.",
+        "specialist_need_title_desc": "Completa el título y la recomendación.",
+        "specialist_need_title_content": "Completa el título y contenido del recurso.",
+        "specialist_invalid_track": "Selecciona una pista válida.",
+        "specialist_action_saved": "Acción registrada correctamente.",
+        "specialist_action_failed": "No se pudo registrar la acción: {error}",
+        "specialist_log_recommendation": "RECOMENDACIÓN",
+        "specialist_log_resource": "RECURSO",
+        "specialist_log_music": "MÚSICA SUGERIDA",
+
+        # Pasos de microdescansos
+        "micro_step_pause_1": "Siéntate con la espalda cómoda.",
+        "micro_step_pause_2": "Inhala lentamente durante 4 segundos.",
+        "micro_step_pause_3": "Exhala sin prisa durante 5 segundos.",
+        "micro_step_pause_4": "Repite el ciclo hasta terminar la pausa.",
+        "micro_step_grow_1": "Abre el juego de observación y crecimiento.",
+        "micro_step_grow_2": "Riega poco a poco para ver la escena cambiar.",
+        "micro_step_grow_3": "Respira con la calma del paisaje.",
+        "micro_step_grow_4": "Disfruta el momento sin prisa.",
+        "micro_step_patterns_1": "Mira un punto fijo.",
+        "micro_step_patterns_2": "Sigue un patrón visual simple.",
+        "micro_step_patterns_3": "Evita forzar la vista.",
+        "micro_step_patterns_4": "Respira lentamente.",
+        "micro_step_touch_1": "Toca suavemente la mesa.",
+        "micro_step_touch_2": "Nota la textura.",
+        "micro_step_touch_3": "Respira mientras observas la sensación.",
+        "micro_step_touch_4": "Repite sin juzgar.",
+        "micro_step_memory_1": "Observa 4 elementos cercanos.",
+        "micro_step_memory_2": "Cierra los ojos unos segundos.",
+        "micro_step_memory_3": "Recuerda el orden.",
+        "micro_step_memory_4": "Repite con calma.",
     },
     "en": {
         # Login / Register
@@ -828,6 +888,66 @@ TRANSLATIONS = {
         "super_role_specialist": "Specialist",
         "super_role_user": "User",
         "super_role_none": "No role",
+        "super_state_update_error": "Could not update the status: {error}",
+        "super_audit_state_changed": "The superuser changed the account status to {estado}.",
+        "super_audit_deleted": "The superuser deleted an account from the admin panel.",
+
+        # Common / fallbacks
+        "day_mon": "Mon",
+        "day_tue": "Tue",
+        "day_wed": "Wed",
+        "day_thu": "Thu",
+        "day_fri": "Fri",
+        "day_sat": "Sat",
+        "day_sun": "Sun",
+        "activity_default": "Activity",
+        "no_title": "No title",
+        "microbreak_default": "Microbreak",
+        "history_no_state": "No status",
+        "category_general": "General",
+        "title_label": "Title:",
+        "category_label": "Category:",
+        "description_label": "Description:",
+        "detail_label": "Detail:",
+        "type_label": "Type:",
+        "content_label": "Content:",
+        "metric_avg_suffix": "avg",
+        "settings_password_error": "Could not change the password.",
+
+        # Specialist
+        "specialist_last_state": "Last: {estado}",
+        "specialist_need_common_user": "Select a common user first.",
+        "specialist_restricted_action": "You cannot record actions for a restricted account.",
+        "specialist_need_title_desc": "Complete the title and the recommendation.",
+        "specialist_need_title_content": "Complete the title and content of the resource.",
+        "specialist_invalid_track": "Select a valid track.",
+        "specialist_action_saved": "Action registered successfully.",
+        "specialist_action_failed": "Could not register the action: {error}",
+        "specialist_log_recommendation": "RECOMMENDATION",
+        "specialist_log_resource": "RESOURCE",
+        "specialist_log_music": "SUGGESTED MUSIC",
+
+        # Microbreak steps
+        "micro_step_pause_1": "Sit with your back comfortable.",
+        "micro_step_pause_2": "Inhale slowly for 4 seconds.",
+        "micro_step_pause_3": "Exhale unhurriedly for 5 seconds.",
+        "micro_step_pause_4": "Repeat the cycle until the break ends.",
+        "micro_step_grow_1": "Open the observation and growth game.",
+        "micro_step_grow_2": "Water little by little to see the scene change.",
+        "micro_step_grow_3": "Breathe with the calm of the landscape.",
+        "micro_step_grow_4": "Enjoy the moment without rushing.",
+        "micro_step_patterns_1": "Look at a fixed point.",
+        "micro_step_patterns_2": "Follow a simple visual pattern.",
+        "micro_step_patterns_3": "Avoid straining your eyes.",
+        "micro_step_patterns_4": "Breathe slowly.",
+        "micro_step_touch_1": "Gently touch the table.",
+        "micro_step_touch_2": "Notice the texture.",
+        "micro_step_touch_3": "Breathe while noticing the sensation.",
+        "micro_step_touch_4": "Repeat without judging.",
+        "micro_step_memory_1": "Look at 4 nearby objects.",
+        "micro_step_memory_2": "Close your eyes for a few seconds.",
+        "micro_step_memory_3": "Remember the order.",
+        "micro_step_memory_4": "Repeat calmly.",
     },
 }
 
@@ -840,6 +960,11 @@ class Lang:
         if kwargs:
             text = text.format(**kwargs)
         return text
+
+    @classmethod
+    def t(cls, key_name, fallback=""):
+        text = TRANSLATIONS.get(cls._current, {}).get(key_name)
+        return text if text is not None else fallback
 
     @classmethod
     def set(cls, lang):

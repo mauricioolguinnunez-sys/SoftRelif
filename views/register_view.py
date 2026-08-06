@@ -1,6 +1,7 @@
 import customtkinter as ctk
 
 from controllers.auth_controller import AuthController
+from utils.app_state import AppState
 from utils.i18n import Lang
 
 
@@ -27,6 +28,8 @@ class RegisterForm:
         self.register_button = None
         self.back_button = None
         self.register_message = None
+
+        Lang.set(AppState.load_language())
 
     @property
     def theme(self):

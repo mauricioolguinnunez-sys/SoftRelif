@@ -928,7 +928,7 @@ class SuperuserView(BaseVistaComponentes):
                 cursor,
                 id_usuario=id_usuario,
                 accion=estado,
-                descripcion=f"El superuser cambió el estado de la cuenta a {estado}."
+                descripcion=Lang.get("super_audit_state_changed", estado=estado)
             )
 
             conexion.commit()
@@ -943,7 +943,7 @@ class SuperuserView(BaseVistaComponentes):
 
             return {
                 "success": False,
-                "message": f"No se pudo actualizar el estado: {error}"
+                "message": Lang.get("super_state_update_error", error=error)
             }
 
         finally:
@@ -976,7 +976,7 @@ class SuperuserView(BaseVistaComponentes):
                 cursor,
                 id_usuario=id_usuario,
                 accion="eliminar",
-                descripcion="El superuser eliminó una cuenta desde el panel administrativo."
+                descripcion=Lang.get("super_audit_deleted")
             )
 
             cursor.execute("""

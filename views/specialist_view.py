@@ -27,6 +27,9 @@ class SpecialistView(ctk.CTkFrame):
         self.app = app
         self.usuario_actual = user or getattr(app, "current_user", None)
 
+        user_lang = self.usuario_actual.get("idioma") if self.usuario_actual else None
+        Lang.set(user_lang or AppState.load_language())
+
         self.tema_nombre = self.usuario_actual.get("tema_visual", "light") if self.usuario_actual else "light"
         self.tema = ThemeManager.get_theme(self.tema_nombre)
 
@@ -909,7 +912,7 @@ class SpecialistView(ctk.CTkFrame):
                 ultimo_estado = resumen.get("ultimo_estado_animo_general", "-")
 
                 promedios_texto = "  |  ".join(
-                    f"{k.capitalize()} prom: {v}/10" for k, v in list(promedios.items())[:4]
+                    f"{k.capitalize()} {Lang.get('metric_avg_suffix')}: {v}/10" for k, v in list(promedios.items())[:4]
                 )
 
                 header_box = self.marco(summary_card)
@@ -934,7 +937,7 @@ class SpecialistView(ctk.CTkFrame):
                     (
                         f"Total: {total_ck}  |  "
                         f"{promedios_texto}  |  "
-                        f"Último: {ultimo_estado}"
+                        f"{Lang.get('specialist_last_state', estado=ultimo_estado)}"
                     ),
                     size=11,
                     text_color=self.color("text_soft", "#6B7280")
@@ -1088,11 +1091,11 @@ class SpecialistView(ctk.CTkFrame):
 
     def validar_usuario_seleccionado(self):
         if not self.usuario_seleccionado:
-            self.mostrar_mensaje("Selecciona primero un usuario común.", error=True)
+            self.mostrar_mensaje(Lang.get("specialist_need_common_user"), error=True)
             return False
 
         if self.usuario_seleccionado.get("estado") == "restringida":
-            self.mostrar_mensaje("No puedes registrar acciones para una cuenta restringida.", error=True)
+            self.mostrar_mensaje(Lang.get("specialist_restricted_action"), error=True)
             return False
 
         return True
@@ -1105,13 +1108,13 @@ class SpecialistView(ctk.CTkFrame):
         descripcion = self.recomendacion_descripcion.get("1.0", "end-1c").strip()
 
         if not titulo or not descripcion:
-            self.mostrar_mensaje("Completa el título y la recomendación.", error=True)
+            self.mostrar_mensaje(Lang.get("specialist_need_title_desc"), error=True)
             return
 
         texto = (
-            f"RECOMENDACION\n"
-            f"Título: {titulo}\n"
-            f"Detalle: {descripcion}"
+            f"{Lang.get('specialist_log_recommendation')}\n"
+            f"{Lang.get('title_label')} {titulo}\n"
+            f"{Lang.get('detail_label')} {descripcion}"
         )
 
         resultado = self.registrar_accion(
@@ -1136,14 +1139,14 @@ class SpecialistView(ctk.CTkFrame):
         contenido = self.recurso_contenido.get("1.0", "end-1c").strip()
 
         if not titulo or not contenido:
-            self.mostrar_mensaje("Completa el título y contenido del recurso.", error=True)
+            self.mostrar_mensaje(Lang.get("specialist_need_title_content"), error=True)
             return
 
         texto = (
-            f"RECURSO\n"
-            f"Título: {titulo}\n"
-            f"Tipo: {tipo}\n"
-            f"Contenido: {contenido}"
+            f"{Lang.get('specialist_log_resource')}\n"
+            f"{Lang.get('title_label')} {titulo}\n"
+            f"{Lang.get('type_label')} {tipo}\n"
+            f"{Lang.get('content_label')} {contenido}"
         )
 
         resultado = self.registrar_accion(
@@ -1163,21 +1166,21 @@ class SpecialistView(ctk.CTkFrame):
         if not self.validar_usuario_seleccionado():
             return {
                 "success": False,
-                "message": "Selecciona primero un usuario común."
+                "message": Lang.get("specialist_need_common_user")
             }
 
         if not isinstance(track, dict):
             return {
                 "success": False,
-                "message": "Selecciona una pista válida."
+                "message": Lang.get("specialist_invalid_track")
             }
 
         descripcion = (
-            f"MUSICA_SUGERIDA\n"
+            f"{Lang.get('specialist_log_music')}\n"
             f"ID: {track.get('id', '-')}\n"
-            f"Título: {track.get('title', '-')}\n"
-            f"Categoría: {track.get('category', '-')}\n"
-            f"Descripción: {track.get('description', '-')}"
+            f"{Lang.get('title_label')} {track.get('title', '-')}\n"
+            f"{Lang.get('category_label')} {track.get('category', '-')}\n"
+            f"{Lang.get('description_label')} {track.get('description', '-')}"
         )
 
         resultado = self.registrar_accion(
@@ -1216,7 +1219,7 @@ class SpecialistView(ctk.CTkFrame):
 
             return {
                 "success": True,
-                "message": "Acción registrada correctamente."
+                "message": Lang.get("specialist_action_saved")
             }
 
         except Exception as error:
@@ -1224,7 +1227,7 @@ class SpecialistView(ctk.CTkFrame):
 
             return {
                 "success": False,
-                "message": f"No se pudo registrar la acción: {error}"
+                "message": Lang.get("specialist_action_failed", error=error)
             }
 
         finally:
