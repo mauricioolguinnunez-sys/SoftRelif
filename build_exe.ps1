@@ -11,7 +11,7 @@ if (-not (Test-Path $py)) {
 
 & $py -m pip install pyinstaller --quiet
 
-& $py -m PyInstaller --noconfirm --clean --onefile --windowed --name SoftRelief --add-data "assets;assets" --add-data "games;games" --add-data ".env;." --hidden-import cryptography --hidden-import mysql.connector.locales.eng.client_error main.py
+& $py -m PyInstaller --noconfirm --clean --onefile --windowed --name SoftRelief --add-data "assets;assets" --add-data "games;games" --add-data ".env;." --hidden-import cryptography --hidden-import mysql.connector.locales.eng.client_error --collect-submodules mysql.connector main.py
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "PyInstaller fallo."
