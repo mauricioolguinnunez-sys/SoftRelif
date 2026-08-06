@@ -21,7 +21,8 @@ softrelief_state.json
 
 # Artefactos de build (PyInstaller)
 build/
-dist/
+dist/*
+!dist/SoftRelief.exe
 *.spec
 
 # Tests
