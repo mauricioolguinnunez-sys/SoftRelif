@@ -2,6 +2,6 @@ customtkinter
 pillow
 pygame
 python-dotenv
-mysql-connector-python
+mysql-connector-python==8.4.0
 pymongo
 cryptography
