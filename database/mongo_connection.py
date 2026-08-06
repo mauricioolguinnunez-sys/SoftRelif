@@ -5,7 +5,9 @@ from dotenv import load_dotenv
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+from utils.paths import app_base_dir
+
+BASE_DIR = Path(app_base_dir())
 ENV_PATH = BASE_DIR / ".env"
 
 load_dotenv(dotenv_path=ENV_PATH)

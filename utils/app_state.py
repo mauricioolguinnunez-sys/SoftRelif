@@ -1,8 +1,10 @@
 import json
 import os
 
+from utils.paths import app_base_dir
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+BASE_DIR = app_base_dir()
 STATE_PATH = os.path.join(BASE_DIR, "softrelief_state.json")
 
 

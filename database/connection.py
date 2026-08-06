@@ -5,8 +5,10 @@ import mysql.connector
 from mysql.connector import Error
 from dotenv import load_dotenv
 
+from utils.paths import app_base_dir
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+
+BASE_DIR = Path(app_base_dir())
 ENV_PATH = BASE_DIR / ".env"
 
 load_dotenv(dotenv_path=ENV_PATH)
