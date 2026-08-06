@@ -19,6 +19,14 @@ softrelief_state.json
 # Configuración privada
 .env
 
+# Artefactos de build (PyInstaller)
+build/
+dist/
+*.spec
+
+# Tests
+.pytest_cache/
+
 # VS Code
 .vscode/
 

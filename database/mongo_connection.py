@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -7,10 +8,32 @@ from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 
 from utils.paths import app_base_dir
 
-BASE_DIR = Path(app_base_dir())
-ENV_PATH = BASE_DIR / ".env"
 
-load_dotenv(dotenv_path=ENV_PATH)
+def _load_env():
+    """
+    Carga la configuración desde un archivo .env.
+
+    Orden de búsqueda:
+    1. Junto al ejecutable (permite editar la configuración sin recompilar).
+    2. Dentro del bundle del .exe (si se incluyó con --add-data).
+    3. En la raíz del proyecto (modo desarrollo).
+    """
+    candidatos = [Path(app_base_dir())]
+
+    if getattr(sys, "frozen", False):
+        candidatos.append(Path(sys._MEIPASS))
+
+    for base in candidatos:
+        env_path = base / ".env"
+
+        if env_path.exists():
+            load_dotenv(dotenv_path=env_path)
+            return env_path
+
+    return None
+
+
+ENV_PATH = _load_env()
 
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017").strip()
 MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "softrelief_nosql").strip()
