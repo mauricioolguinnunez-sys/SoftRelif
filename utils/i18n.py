@@ -451,6 +451,16 @@ TRANSLATIONS = {
         "specialist_log_recommendation": "RECOMENDACIÓN",
         "specialist_log_resource": "RECURSO",
         "specialist_log_music": "MÚSICA SUGERIDA",
+        "resource_type_texto": "Texto",
+        "resource_type_enlace": "Enlace",
+        "resource_type_documento": "Documento",
+        "resource_type_audio": "Audio",
+        "resource_type_video": "Video",
+
+        # Recursos de apoyo en el Home
+        "home_resources": "Recursos de apoyo",
+        "home_no_resources": "Aún no tienes recursos asignados.",
+        "home_resource_meta": "{tipo} · asignado por {especialista} · {fecha}",
 
         # Pasos de microdescansos
         "micro_step_pause_1": "Siéntate con la espalda cómoda.",
@@ -926,6 +936,16 @@ TRANSLATIONS = {
         "specialist_log_recommendation": "RECOMMENDATION",
         "specialist_log_resource": "RESOURCE",
         "specialist_log_music": "SUGGESTED MUSIC",
+        "resource_type_texto": "Text",
+        "resource_type_enlace": "Link",
+        "resource_type_documento": "Document",
+        "resource_type_audio": "Audio",
+        "resource_type_video": "Video",
+
+        # Support resources in Home
+        "home_resources": "Support resources",
+        "home_no_resources": "You don't have assigned resources yet.",
+        "home_resource_meta": "{tipo} · assigned by {especialista} · {fecha}",
 
         # Microbreak steps
         "micro_step_pause_1": "Sit with your back comfortable.",

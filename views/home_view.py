@@ -1,4 +1,5 @@
 import os
+import re
 from importlib import import_module
 
 import customtkinter as ctk
@@ -547,6 +548,7 @@ class HomeView(ctk.CTkFrame):
         self.home_phrase()
         self.home_activity()
         self.home_recomendacion_especialista()
+        self.home_recursos_especialista()
 
     def last_checkin(self):
         latest = CheckinController.get_latest_checkin(self.current_user)
@@ -622,6 +624,128 @@ class HomeView(ctk.CTkFrame):
             text_color=self.c("text", "#30384F"),
             wraplength=820
         ).pack(anchor="w", padx=24, pady=(0, 22))
+
+    def obtener_recursos_especialista(self):
+        if not self.current_user:
+            return []
+        id_usuario = self.current_user.get("id_usuario")
+        if not id_usuario:
+            return []
+        try:
+            from models.user_model import UserModel
+            return UserModel.get_resources_for_user(id_usuario) or []
+        except Exception:
+            return []
+
+    def parsear_recurso(self, descripcion):
+        descripcion = str(descripcion)
+
+        patrones = [
+            ("nuevo", r"TIPO:\s*(.*?)\s*\nTITULO:\s*(.*?)\s*\nCONTENIDO:\s*([\s\S]*)"),
+            ("legacy", r"Título:\s*(.*?)\s*\nTipo:\s*(.*?)\s*\nContenido:\s*([\s\S]*)"),
+            ("legacy", r"Title:\s*(.*?)\s*\nType:\s*(.*?)\s*\nContent:\s*([\s\S]*)"),
+        ]
+
+        for formato, patron in patrones:
+            match = re.search(patron, descripcion)
+            if match:
+                if formato == "nuevo":
+                    return {
+                        "titulo": match.group(2).strip(),
+                        "tipo": match.group(1).strip(),
+                        "contenido": match.group(3).strip(),
+                    }
+                return {
+                    "titulo": match.group(1).strip(),
+                    "tipo": match.group(2).strip(),
+                    "contenido": match.group(3).strip(),
+                }
+
+        return None
+
+    def icono_recurso(self, tipo):
+        iconos = {
+            "texto": "📄",
+            "enlace": "🔗",
+            "documento": "📑",
+            "audio": "🎵",
+            "video": "🎬",
+        }
+        return iconos.get(tipo, "📄")
+
+    def home_recursos_especialista(self):
+        recursos = self.obtener_recursos_especialista()
+
+        card = self.card(self.content)
+        card.grid(
+            row=5, column=0, columnspan=3, sticky="ew", padx=30, pady=(0, 28)
+        )
+
+        TitleLabel(
+            card,
+            Lang.get("home_resources"),
+            size=22,
+            text_color=self.c("text", "#30384F")
+        ).pack(anchor="w", padx=24, pady=(22, 8))
+
+        if not recursos:
+            BodyLabel(
+                card,
+                Lang.get("home_no_resources"),
+                size=14,
+                text_color=self.c("text_soft", "#7E86A3"),
+                wraplength=820
+            ).pack(anchor="w", padx=24, pady=(0, 22))
+            return
+
+        for recurso in recursos:
+            datos = self.parsear_recurso(recurso.get("descripcion", ""))
+
+            if not datos:
+                continue
+
+            especialista = recurso.get("especialista_nombre") or Lang.get("super_role_specialist")
+            fecha = recurso.get("fecha_evento", "-")
+
+            fila = ctk.CTkFrame(card, fg_color="transparent")
+            fila.pack(fill="x", padx=24, pady=(0, 14))
+
+            ctk.CTkLabel(
+                fila,
+                text=self.icono_recurso(datos["tipo"]),
+                font=("Arial", 20),
+                text_color=self.c("text", "#30384F")
+            ).pack(side="left", padx=(0, 12))
+
+            cuerpo = ctk.CTkFrame(fila, fg_color="transparent")
+            cuerpo.pack(side="left", fill="x", expand=True)
+
+            TitleLabel(
+                cuerpo,
+                datos["titulo"],
+                size=15,
+                text_color=self.c("text", "#30384F")
+            ).pack(anchor="w")
+
+            SmallLabel(
+                cuerpo,
+                Lang.get(
+                    "home_resource_meta",
+                    tipo=Lang.get(f"resource_type_{datos['tipo']}") or datos["tipo"],
+                    especialista=especialista,
+                    fecha=fecha
+                ),
+                size=11,
+                text_color=self.c("text_soft", "#7E86A3")
+            ).pack(anchor="w", pady=(2, 4))
+
+            BodyLabel(
+                cuerpo,
+                datos["contenido"],
+                size=13,
+                text_color=self.c("text", "#30384F"),
+                wraplength=760
+            ).pack(anchor="w")
 
     def home_header(self):
         card = self.card(self.content)

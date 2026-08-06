@@ -640,6 +640,38 @@ class UserModel:
             conexion.close()
 
     @staticmethod
+    def get_resources_for_user(id_usuario):
+        """
+        Recursos de apoyo asignados a un usuario por el especialista
+        (accion 'cargar_recurso'). Se usa en HomeView del usuario normal.
+        """
+
+        conexion = get_connection()
+        cursor = conexion.cursor(dictionary=True)
+
+        try:
+            cursor.execute("""
+                SELECT
+                    b.id_bitacora,
+                    b.descripcion,
+                    b.fecha_evento,
+                    especialista.nombre AS especialista_nombre
+                FROM bitacora_cuenta b
+                LEFT JOIN usuario especialista
+                    ON b.id_admin = especialista.id_usuario
+                WHERE b.id_usuario = %s
+                  AND b.accion = 'cargar_recurso'
+                ORDER BY b.fecha_evento DESC
+                LIMIT 6;
+            """, (id_usuario,))
+
+            return cursor.fetchall()
+
+        finally:
+            cursor.close()
+            conexion.close()
+
+    @staticmethod
     def get_users():
         return UserModel.get_all_users()
 

@@ -1,3 +1,5 @@
+import re
+
 import customtkinter as ctk
 
 from components import (
@@ -531,10 +533,20 @@ class SpecialistView(ctk.CTkFrame):
         self.recurso_titulo = self.entrada(card, Lang.get("resource_title_placeholder"))
         self.recurso_titulo.grid(row=2, column=0, sticky="ew", padx=20, pady=(0, 10))
 
+        self.recurso_tipos = {
+            Lang.get("resource_type_texto"): "texto",
+            Lang.get("resource_type_enlace"): "enlace",
+            Lang.get("resource_type_documento"): "documento",
+            Lang.get("resource_type_audio"): "audio",
+            Lang.get("resource_type_video"): "video",
+        }
+
+        self.recurso_tipo_var.set(Lang.get("resource_type_texto"))
+
         tipo = ctk.CTkOptionMenu(
             card,
             variable=self.recurso_tipo_var,
-            values=["texto", "enlace", "documento", "audio", "video"],
+            values=list(self.recurso_tipos.keys()),
             height=34,
             fg_color=self.color("button", "#7C3AED"),
             button_color=self.color("button_hover", "#6D28D9"),
@@ -1079,7 +1091,7 @@ class SpecialistView(ctk.CTkFrame):
 
         BodyLabel(
             card,
-            registro.get("descripcion", "-"),
+            self.formatear_descripcion_log(registro.get("descripcion", "-")),
             size=11,
             text_color=self.color("text_soft", "#6B7280"),
             wraplength=740
@@ -1088,6 +1100,30 @@ class SpecialistView(ctk.CTkFrame):
     # =====================================================
     # ACCIONES
     # =====================================================
+
+    def formatear_descripcion_log(self, descripcion):
+        descripcion = str(descripcion)
+
+        if "TIPO:" in descripcion and "TITULO:" in descripcion:
+            match = re.search(
+                r"TIPO:\s*(.*?)\s*\nTITULO:\s*(.*?)\s*\nCONTENIDO:\s*([\s\S]*)",
+                descripcion
+            )
+
+            if match:
+                tipo = match.group(1).strip()
+                titulo = match.group(2).strip()
+                contenido = match.group(3).strip()
+
+                tipo_label = Lang.get(f"resource_type_{tipo}") or tipo
+
+                return (
+                    f"{Lang.get('specialist_log_resource')} · {tipo_label}\n"
+                    f"{Lang.get('title_label')} {titulo}\n"
+                    f"{Lang.get('content_label')} {contenido}"
+                )
+
+        return descripcion
 
     def validar_usuario_seleccionado(self):
         if not self.usuario_seleccionado:
@@ -1135,7 +1171,7 @@ class SpecialistView(ctk.CTkFrame):
             return
 
         titulo = self.recurso_titulo.get().strip()
-        tipo = self.recurso_tipo_var.get().strip()
+        tipo = self.recurso_tipos.get(self.recurso_tipo_var.get().strip(), "texto")
         contenido = self.recurso_contenido.get("1.0", "end-1c").strip()
 
         if not titulo or not contenido:
@@ -1143,10 +1179,10 @@ class SpecialistView(ctk.CTkFrame):
             return
 
         texto = (
-            f"{Lang.get('specialist_log_resource')}\n"
-            f"{Lang.get('title_label')} {titulo}\n"
-            f"{Lang.get('type_label')} {tipo}\n"
-            f"{Lang.get('content_label')} {contenido}"
+            f"RECURSO\n"
+            f"TIPO: {tipo}\n"
+            f"TITULO: {titulo}\n"
+            f"CONTENIDO: {contenido}"
         )
 
         resultado = self.registrar_accion(
