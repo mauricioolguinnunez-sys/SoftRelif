@@ -4,3 +4,4 @@ pygame
 python-dotenv
 mysql-connector-python
 pymongo
+cryptography
